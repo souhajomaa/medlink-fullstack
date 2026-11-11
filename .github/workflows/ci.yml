@@ -25,17 +25,14 @@ jobs:
 
       # --- BACKEND ---
       - name: Installation des dépendances Backend
-        working-directory: ./backend
-        run: npm ci
+        run: npm --prefix backend ci
 
       # --- FRONTEND ---
       - name: Installation des dépendances Frontend
-        working-directory: ./frontend
-        run: npm ci
+        run: npm --prefix frontend ci
 
       - name: Build du Frontend (Vite)
-        working-directory: ./frontend
-        run: npm run build
+        run: npm --prefix frontend run build
 
       - name: ✅ Succès du pipeline CI
         run: echo "Le code compile avec succès pour le frontend et le backend !"
