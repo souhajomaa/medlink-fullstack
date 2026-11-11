@@ -1,102 +1,63 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../../shared/api/axiosConfig';
 
-function statusBadge(status) {
-  const map = {
-    normal: 'badge-success',
-    abnormal: 'badge-warning',
-    critical: 'badge-error',
-  };
-  const labels = {
-    normal: 'Normal',
-    abnormal: 'Anormal',
-    critical: 'Critique',
-  };
-  return <span className={map[status] || 'badge-info'}>{labels[status] || status}</span>;
-}
-
 export default function Results() {
-  const [list, setList] = useState([]);
+  const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.records
+    api.patient.records
       .results()
-      .then(setList)
+      .then(setResults)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return <div className="rounded-lg bg-error-container p-4 text-error">{error}</div>;
-  }
-
-  // Group by date
-  const grouped = list.reduce((acc, r) => {
-    const d = r.result_date;
-    if (!acc[d]) acc[d] = [];
-    acc[d].push(r);
-    return acc;
-  }, {});
+  if (loading) return <div className="py-10 text-center">Chargement...</div>;
+  if (error) return <div className="rounded-lg bg-error-container p-4 text-error">{error}</div>;
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display text-2xl font-bold text-primary">Mes résultats</h2>
-        <p className="mt-1 text-sm text-on-variant">
-          Analyses biologiques et bilans de laboratoire
-        </p>
+        <h2 className="font-display text-2xl font-bold text-primary">Mes résultats d'analyses</h2>
+        <p className="mt-1 text-sm text-on-variant">Consultez l'historique de vos examens biologiques.</p>
       </div>
 
-      {list.length === 0 ? (
-        <div className="card py-16 text-center">
-          <p className="text-on-variant">Aucun résultat d’analyse disponible.</p>
-        </div>
+      {results.length === 0 ? (
+        <div className="card py-16 text-center text-on-variant">Aucun résultat disponible.</div>
       ) : (
-        Object.entries(grouped).map(([date, results]) => (
-          <div key={date} className="card overflow-hidden p-0">
-            <div className="border-b border-outline-variant/40 bg-surface-low px-5 py-3">
-              <h3 className="font-semibold text-primary">
-                {new Date(date).toLocaleDateString('fr-FR', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </h3>
-            </div>
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-outline-variant/30 text-on-variant">
-                  <th className="px-5 py-2.5 font-medium">Examen</th>
-                  <th className="px-5 py-2.5 font-medium">Résultat</th>
-                  <th className="px-5 py-2.5 font-medium">Référence</th>
-                  <th className="px-5 py-2.5 font-medium">Statut</th>
+        <div className="card overflow-hidden p-0">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-outline-variant/40 bg-surface-low">
+              <tr>
+                <th className="px-5 py-3 font-semibold text-on-variant">Date</th>
+                <th className="px-5 py-3 font-semibold text-on-variant">Examen</th>
+                <th className="px-5 py-3 font-semibold text-on-variant">Résultat</th>
+                <th className="px-5 py-3 font-semibold text-on-variant">Statut</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-outline-variant/30">
+              {results.map((r) => (
+                <tr key={r.id} className="hover:bg-surface-low/50">
+                  <td className="px-5 py-3.5">
+                    {new Date(r.result_date).toLocaleDateString('fr-FR')}
+                  </td>
+                  <td className="px-5 py-3.5 font-medium text-primary">{r.test_name}</td>
+                  <td className="px-5 py-3.5">
+                    {r.result_value} {r.unit} 
+                    <span className="text-xs text-on-variant ml-2">({r.reference_range})</span>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <span className={r.status === 'normal' ? 'badge-success' : 'badge-warning'}>
+                      {r.status}
+                    </span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-outline-variant/20">
-                {results.map((r) => (
-                  <tr key={r.id}>
-                    <td className="px-5 py-3 font-medium text-primary">{r.test_name}</td>
-                    <td className="px-5 py-3">
-                      {r.result_value} {r.unit}
-                    </td>
-                    <td className="px-5 py-3 text-on-variant">{r.reference_range}</td>
-                    <td className="px-5 py-3">{statusBadge(r.status)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ))
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

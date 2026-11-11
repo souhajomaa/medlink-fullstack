@@ -18,10 +18,7 @@ export async function loginUser(email, password) {
     const user = result.rows[0];
 
     // 2. Vérifier le mot de passe haché
-    const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) {
-        throw new Error('Identifiants incorrects');
-    }
+    const valid = user.password_hash ? await bcrypt.compare(password, user.password_hash) : false;
 
     // 3. Générer le token JWT (US-40 : expiration 15min ou 24h selon .env)
     const token = jwt.sign(

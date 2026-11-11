@@ -1,0 +1,75 @@
+{
+  "realm": "medlink",
+  "enabled": true,
+  "displayName": "MedLink",
+  "loginWithEmailAllowed": true,
+  "registrationEmailAsUsername": true,
+  "duplicateEmailsAllowed": false,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": true,
+  "roles": {
+    "realm": [
+      { "name": "patient", "description": "Patient" },
+      { "name": "practitioner", "description": "Praticien" },
+      { "name": "admin", "description": "Administrateur MedLink" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "medlink-frontend",
+      "name": "MedLink Frontend",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:3000"],
+      "attributes": { "pkce.code.challenge.method": "S256" }
+    },
+    {
+      "clientId": "medlink-admin-api",
+      "name": "MedLink Backend - API admin Keycloak",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "dev-admin-secret-change-me",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-medlink-admin-api",
+      "enabled": true,
+      "serviceAccountClientId": "medlink-admin-api",
+      "clientRoles": {
+        "realm-management": ["manage-users", "view-users", "query-users", "view-realm"]
+      }
+    },
+    {
+      "username": "admin@medlink.tn", "email": "admin@medlink.tn", "firstName": "Admin", "lastName": "Principal",
+      "enabled": true, "emailVerified": true, "realmRoles": ["admin"],
+      "credentials": [{ "type": "password", "value": "password123", "temporary": false }]
+    },
+    {
+      "username": "patient@medlink.tn", "email": "patient@medlink.tn", "firstName": "Amine", "lastName": "Ben Salah",
+      "enabled": true, "emailVerified": true, "realmRoles": ["patient"],
+      "credentials": [{ "type": "password", "value": "password123", "temporary": false }]
+    },
+    {
+      "username": "sara.patient@medlink.tn", "email": "sara.patient@medlink.tn", "firstName": "Sara", "lastName": "Trabelsi",
+      "enabled": true, "emailVerified": true, "realmRoles": ["patient"],
+      "credentials": [{ "type": "password", "value": "password123", "temporary": false }]
+    },
+    {
+      "username": "doctor@medlink.tn", "email": "doctor@medlink.tn", "firstName": "Dr. Karim", "lastName": "Mansouri",
+      "enabled": true, "emailVerified": true, "realmRoles": ["practitioner"],
+      "credentials": [{ "type": "password", "value": "password123", "temporary": false }]
+    },
+    {
+      "username": "pediatre@medlink.tn", "email": "pediatre@medlink.tn", "firstName": "Dr. Leila", "lastName": "Gharbi",
+      "enabled": true, "emailVerified": true, "realmRoles": ["practitioner"],
+      "credentials": [{ "type": "password", "value": "password123", "temporary": false }]
+    }
+  ]
+}

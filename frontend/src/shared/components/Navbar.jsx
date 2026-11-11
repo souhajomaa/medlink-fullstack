@@ -21,7 +21,7 @@ export default function Navbar() {
                 </div>
                 <div className="flex items-center gap-4">
           <span className="badge-info capitalize text-sm px-4 py-2">
-            {user?.role === 'doctor' ? 'Médecin' : user?.role === 'admin' ? 'Admin' : 'Patient'}
+            {{ patient: 'Patient', practitioner: 'Praticien', admin: 'Admin' }[user?.role] || 'Patient'}
           </span>
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-primary font-semibold">
                         {user?.full_name?.charAt(0) || 'U'}

@@ -10,17 +10,28 @@ const patientNav = [
     { to: '/app/results', label: 'Mes résultats', icon: '🧪' },
 ];
 
-const doctorNav = [
+const practitionerNav = [
     { to: '/app', label: 'Tableau de bord', icon: '📊' },
     { to: '/app/appointments', label: 'Agenda', icon: '📅' },
     { to: '/app/records', label: 'Dossiers patients', icon: '📋' },
 ];
 
+const adminNav = [
+    { to: '/app', label: 'Tableau de bord', icon: '📊' },
+    { to: '/app/admin/users', label: 'Utilisateurs', icon: '👥' },
+    { to: '/app/admin/cliniques', label: 'Cliniques', icon: '🏥' },
+    { to: '/app/admin/audit', label: "Journal d'audit", icon: '🛡️' },
+];
+
+// Les clés correspondent aux rôles stockés en base (users.role)
+const navByRole = { patient: patientNav, practitioner: practitionerNav, admin: adminNav };
+const roleLabel = { patient: 'Patient', practitioner: 'Praticien', admin: 'Administrateur' };
+
 export default function Sidebar() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
-    const nav = user?.role === 'doctor' ? doctorNav : patientNav;
+    const nav = navByRole[user?.role] || patientNav;
 
     const handleLogout = () => {
         logout();
@@ -66,7 +77,7 @@ export default function Sidebar() {
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="truncate text-sm font-semibold text-on-surface">{user?.full_name}</p>
-                            <p className="truncate text-xs text-on-variant">{user?.role === 'doctor' ? user?.specialty || 'Médecin' : 'Patient'}</p>
+                            <p className="truncate text-xs text-on-variant">{user?.role === 'practitioner' ? user?.specialty || roleLabel.practitioner : roleLabel[user?.role] || 'Patient'}</p>
                         </div>
                     </div>
                 </div>

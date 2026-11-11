@@ -2,7 +2,12 @@ import {
   listPractitioners,
   listPatientAppointments,
   bookAppointment,
+  listPatientResults,
+  cancelAppointment as cancelAppointmentService,
+  rescheduleAppointment as rescheduleAppointmentService,
 } from "./patient.service.js";
+
+import pool from "../../shared/utils/db.js";
 
 export async function getPractitioners(req, res) {
   try {
@@ -50,5 +55,65 @@ export async function createAppointment(req, res) {
 
     console.error("Erreur lors de la réservation :", error);
     res.status(500).json({ error: "Impossible de créer le rendez-vous" });
+  }
+}
+
+export async function cancelAppointment(req, res) {
+  try {
+    const appointmentId = parseInt(req.params.id, 10);
+    if (isNaN(appointmentId)) {
+      return res.status(400).json({ error: "ID invalide" });
+    }
+
+    const updated = await cancelAppointmentService(req.user.id, appointmentId);
+    res.json({ message: "Rendez-vous annulé", appointment: updated });
+  } catch (error) {
+    const status = error.message.includes("introuvable") ? 404 : 400;
+    res.status(status).json({ error: error.message });
+  }
+}
+
+export async function rescheduleAppointment(req, res) {
+  try {
+    const appointmentId = parseInt(req.params.id, 10);
+    const { appointment_date, appointment_time } = req.body;
+
+    if (isNaN(appointmentId)) {
+      return res.status(400).json({ error: "ID invalide" });
+    }
+
+    const updated = await rescheduleAppointmentService(
+      req.user.id,
+      appointmentId,
+      appointment_date,
+      appointment_time,
+    );
+
+    res.json({ message: "Rendez-vous reporté", appointment: updated });
+  } catch (error) {
+    const status = error.message.includes("introuvable") ? 404 : 400;
+    res.status(status).json({ error: error.message });
+  }
+}
+
+export async function getResults(req, res) {
+  try {
+    const results = await listPatientResults(req.user.id);
+
+    await pool.query(
+      `INSERT INTO journal_audit (utilisateur_id, action, ressource, adresse_ip) 
+       VALUES ($1, $2, $3, $4)`,
+      [
+        req.user.id,
+        "VIEW_RESULTS",
+        "Consultation des résultats médicaux",
+        req.ip,
+      ],
+    );
+
+    res.json(results);
+  } catch (error) {
+    console.error("Erreur lors du chargement des résultats :", error);
+    res.status(500).json({ error: "Impossible de charger les résultats" });
   }
 }

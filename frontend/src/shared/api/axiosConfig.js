@@ -21,6 +21,12 @@ async function request(path, options = {}) {
   return data;
 }
 
+const qs = (params = {}) => {
+    const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v != null)).toString();
+    return q ? `?${q}` : '';
+};
+const withBody = (method, body) => ({ method, body: JSON.stringify(body) });
+
 export const api = {
   // --- Module AUTH ---
   auth: {
@@ -43,7 +49,23 @@ export const api = {
           method: "POST",
           body: JSON.stringify(data),
         }),
+
+      cancel: (id) =>
+        request(`/patient/appointments/${id}/cancel`, {
+          method: "PATCH",
+        }),
+
+      reschedule: (id, data) =>
+        request(`/patient/appointments/${id}/reschedule`, {
+          method: "PATCH",
+          body: JSON.stringify(data),
+        }),
     },
+
+    cancel: (id) =>
+      request(`/patient/appointments/${id}/cancel`, {
+        method: "PATCH",
+      }),
 
     records: {
       list: () => request("/patient/records"),
@@ -61,6 +83,29 @@ export const api = {
           body: JSON.stringify({ status }),
         }),
     },
+
+      // --- Module admin
+      admin: {
+          stats: () => request('/admin/stats'),
+          users: {
+              list: (params) => request(`/admin/users${qs(params)}`),
+              create: (data) => request('/admin/users', withBody('POST', data)),
+              update: (id, data) => request(`/admin/users/${id}`, withBody('PATCH', data)),
+              setStatus: (id, enabled) => request(`/admin/users/${id}/status`, withBody('PATCH', { enabled })),
+              resetPassword: (id, password) => request(`/admin/users/${id}/reset-password`, withBody('POST', { password })),
+              remove: (id, confirm_email) => request(`/admin/users/${id}`, withBody('DELETE', { confirm_email })),
+              sync: () => request('/admin/users/sync', { method: 'POST' }),
+          },
+          cliniques: {
+              list: () => request('/admin/cliniques'),
+              create: (data) => request('/admin/cliniques', withBody('POST', data)),
+              update: (id, data) => request(`/admin/cliniques/${id}`, withBody('PUT', data)),
+              remove: (id) => request(`/admin/cliniques/${id}`, { method: 'DELETE' }),
+              setPractitioners: (id, practitioner_ids) =>
+                  request(`/admin/cliniques/${id}/practitioners`, withBody('PUT', { practitioner_ids })),
+          },
+          audit: (params) => request(`/admin/audit${qs(params)}`),
+      },
     records: {
       list: () => request("/practitioner/records"),
       create: (data) =>

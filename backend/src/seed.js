@@ -88,6 +88,12 @@ async function seed() {
         );
     `);
 
+      await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS keycloak_id UUID UNIQUE;
+      ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+    `);
+
+
     const hash = await bcrypt.hash('password123', 10);
 
     // 2. Nettoyage des anciennes données (ordre important pour les contraintes CASCADE)

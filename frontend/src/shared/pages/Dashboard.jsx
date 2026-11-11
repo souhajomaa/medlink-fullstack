@@ -70,8 +70,8 @@ export default function Dashboard() {
               </>
           ) : (
               <>
-                <StatCard label="RDV aujourd'hui" value={data.stats.today_appointments} icon="" color="bg-primary-50 text-primary" />
-                <StatCard label="En attente" value={data.stats.pending_appointments} icon="" color="bg-warning-container text-warning" />
+                  <StatCard label="RDV aujourd'hui" value={data.stats.today_appointments} icon="📅" color="bg-primary-50 text-primary" />
+                  <StatCard label="En attente" value={data.stats.pending_appointments} icon="⏳" color="bg-warning-container text-warning" />
                 <StatCard label="Patients suivis" value={data.stats.total_patients} icon="👥" color="bg-secondary-container text-secondary" />
               </>
           )}
@@ -83,7 +83,7 @@ export default function Dashboard() {
             <h3 className="font-display text-xl font-bold text-on-surface">
               {isPatient ? 'Prochains rendez-vous' : 'Agenda du jour'}
             </h3>
-            <Link to="/appointments" className="btn-ghost text-sm">
+            <Link to="/app/appointments" className="btn-ghost text-sm">
               Voir tout →
             </Link>
           </div>
@@ -133,7 +133,7 @@ export default function Dashboard() {
         {/* Actions rapides */}
         {isPatient && (
             <div className="grid gap-6 md:grid-cols-2">
-              <Link to="/book" className="card-hover flex items-center gap-5">
+              <Link to="/app/book" className="card-hover flex items-center gap-5">
                 <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-2xl text-white">
                   ➕
                 </div>
@@ -142,7 +142,7 @@ export default function Dashboard() {
                   <p className="text-sm text-on-variant">Consultez les disponibilités</p>
                 </div>
               </Link>
-              <Link to="/results" className="card-hover flex items-center gap-5">
+              <Link to="/app/results" className="card-hover flex items-center gap-5">
                 <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-secondary text-2xl text-white">
                   🧪
                 </div>

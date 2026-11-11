@@ -23,17 +23,20 @@ export default function Appointments() {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [rescheduleData, setRescheduleData] = useState(null);
+  const [newDate, setNewDate] = useState('');
+  const [newTime, setNewTime] = useState('');
 
   const load = () => {
-  setLoading(true);
-  setError('');
+    setLoading(true);
+    setError('');
 
-  api.patient.appointments
-    .list()
-    .then(setList)
-    .catch((err) => setError(err.message))
-    .finally(() => setLoading(false));
-};
+    api.patient.appointments
+      .list()
+      .then(setList)
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
     load();
@@ -41,7 +44,34 @@ export default function Appointments() {
 
   const updateStatus = async (id, status) => {
     try {
-      await api.appointments.updateStatus(id, status);
+      await api.practitioner.appointments.updateStatus(id, status);
+      load();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const cancelAppointment = async (id) => {
+    if (!window.confirm("Voulez-vous vraiment annuler ce rendez-vous ?")) return;
+    
+    try {
+      await api.patient.appointments.cancel(id);
+      load(); // Recharge la liste pour voir le statut mis à jour
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+    const handleReschedule = async (e) => {
+    e.preventDefault();
+    try {
+      await api.patient.appointments.reschedule(rescheduleData, {
+        appointment_date: newDate,
+        appointment_time: newTime,
+      });
+      setRescheduleData(null);
+      setNewDate('');
+      setNewTime('');
       load();
     } catch (err) {
       alert(err.message);
@@ -91,9 +121,7 @@ export default function Appointments() {
                 <th className="px-5 py-3 font-semibold text-on-variant">Heure</th>
                 <th className="px-5 py-3 font-semibold text-on-variant">Motif</th>
                 <th className="px-5 py-3 font-semibold text-on-variant">Statut</th>
-                {isDoctor && (
-                  <th className="px-5 py-3 font-semibold text-on-variant">Actions</th>
-                )}
+                <th className="px-5 py-3 font-semibold text-on-variant">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/30">
@@ -113,6 +141,8 @@ export default function Appointments() {
                   <td className="px-5 py-3.5">{a.appointment_time?.slice(0, 5)}</td>
                   <td className="px-5 py-3.5 text-on-variant">{a.reason || a.type}</td>
                   <td className="px-5 py-3.5">{statusBadge(a.status)}</td>
+                  
+                  {/* Actions pour le Médecin */}
                   {isDoctor && (
                     <td className="px-5 py-3.5">
                       <div className="flex gap-2">
@@ -143,10 +173,79 @@ export default function Appointments() {
                       </div>
                     </td>
                   )}
+
+                  {/* Actions pour le Patient */}
+                  {!isDoctor && (
+                    <td className="px-5 py-3.5">
+                      <div className="flex gap-2">
+                        {(a.status === 'pending' || a.status === 'confirmed') && (
+                          <>
+                            <button
+                              onClick={() => setRescheduleData(a.id)}
+                              className="rounded-md bg-surface-highest px-2.5 py-1 text-xs font-semibold text-secondary hover:opacity-80"
+                            >
+                              Reporter
+                            </button>
+                            <button
+                              onClick={() => cancelAppointment(a.id)}
+                              className="rounded-md bg-error-container px-2.5 py-1 text-xs font-semibold text-error hover:opacity-80"
+                            >
+                              Annuler
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+            {/* Modale de report */}
+      {rescheduleData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-surface p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-bold text-primary">Reporter le rendez-vous</h3>
+            <form onSubmit={handleReschedule} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-on-variant mb-1">Nouvelle date</label>
+                <input
+                  type="date"
+                  required
+                  value={newDate}
+                  onChange={(e) => setNewDate(e.target.value)}
+                  className="w-full rounded-md border border-outline-variant p-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-on-variant mb-1">Nouvelle heure</label>
+                <input
+                  type="time"
+                  required
+                  value={newTime}
+                  onChange={(e) => setNewTime(e.target.value)}
+                  className="w-full rounded-md border border-outline-variant p-2"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRescheduleData(null)}
+                  className="rounded-md px-4 py-2 text-sm font-semibold text-on-variant hover:bg-surface-low"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+                >
+                  Confirmer
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

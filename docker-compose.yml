@@ -1,6 +1,5 @@
-version: '3.8'
-
 services:
+  # 1. Base de données
   db:
     image: postgres:16-alpine
     container_name: medlink-db
@@ -11,12 +10,59 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - medlink_pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U medlink -d medlink" ]
+      test: ["CMD-SHELL", "pg_isready -U medlink -d medlink"]
       interval: 5s
       timeout: 5s
       retries: 5
 
+  # 2. Backend (Node.js)
+  backend:
+    build: ./backend
+    container_name: medlink-backend
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      # Variables lues par ton db.js
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=medlink
+      - DB_PASSWORD=medlink_secret
+      - DB_NAME=medlink
+      - JWT_SECRET=medlink_super_secret_jwt_2026
+      - ALLOW_LEGACY_AUTH=true
+      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_PUBLIC_URL=http://localhost:8080
+      - KEYCLOAK_REALM=medlink
+      - KEYCLOAK_ADMIN_CLIENT_ID=admin
+      - KEYCLOAK_ADMIN_CLIENT_SECRET=admin
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # 3. Frontend (React + Nginx)
+  frontend:
+    build: ./frontend
+    container_name: medlink-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    container_name: medlink-keycloak
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak/medlink-realm.json:/opt/keycloak/data/import/medlink-realm.json:ro
+
 volumes:
-  medlink_pgdata:
+  postgres_data:

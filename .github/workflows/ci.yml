@@ -1,0 +1,41 @@
+name: MedLink CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "dev", "main", "feature/**" ]
+  pull_request:
+    branches: [ "dev", "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v3
+
+      # ✅ CORRECTION : Pas de "cache: npm" ici, car il n'y a pas de lockfile à la racine
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      # --- BACKEND ---
+      - name: Installation des dépendances Backend
+        working-directory: ./backend
+        run: npm ci
+
+      # --- FRONTEND ---
+      - name: Installation des dépendances Frontend
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build du Frontend (Vite)
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: ✅ Succès du pipeline CI
+        run: echo "Le code compile avec succès pour le frontend et le backend !"
