@@ -22,11 +22,15 @@ import Patients from './modules/practitioner/pages/Patients';
 import DossiersMedicaux from './modules/practitioner/pages/DossiersMedicaux';
 import ComptesRendus from './modules/practitioner/pages/ComptesRendus';
 import PublierResultats from './modules/practitioner/pages/PublierResultats';
-
 // 3. Back-office administrateur (NOUVEAU)
 import AdminDashboard from './modules/admin/pages/Admin';
 import AdminUsers from './modules/admin/pages/AdminUsers';
 import AdminCliniques from './modules/admin/pages/AdminCliniques';
+import AdminAudit from './modules/admin/pages/AdminAudit';
+
+// Pages admin
+import AdminUsers from './modules/admin/pages/AdminUsers';
+import AdminCliniques from './modules/admin/pages/AdminClinique';
 import AdminAudit from './modules/admin/pages/AdminAudit';
 
 // Protection : utilisateur connecté
