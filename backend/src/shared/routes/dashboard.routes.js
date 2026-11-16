@@ -105,7 +105,8 @@ router.get("/", authenticate, async (req, res) => {
              WHERE practitioner_id = $1`,
             [id]
           ),
-
+          
+          //changement de a.specialty à u.specialty
           // Agenda du jour
           pool.query(
             `SELECT

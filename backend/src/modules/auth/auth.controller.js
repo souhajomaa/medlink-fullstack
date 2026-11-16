@@ -70,7 +70,13 @@ export async function register(req, res) {
             }
         }
 
-        console.error('Erreur inscription :', err.message);
+        console.error('========== ERREUR INSCRIPTION ==========');
+console.error(err);
+console.error('Message :', err.message);
+console.error('Code :', err.code);
+console.error('Status :', err.status);
+console.error('Stack :', err.stack);
+console.error('========================================');
         return res.status(500).json({
             error: 'Inscription impossible pour le moment. Veuillez réessayer.',
         });

@@ -89,15 +89,17 @@ const byRole = (map) => (...args) => {
 // ================= AUTH =================
 const auth = {
     login: (email, password) =>
-        request("/auth/login", {
-            method: "POST",
-            body: JSON.stringify({ email, password }),
-        }),
+        publicPost("/auth/login", { email, password }),
+
     me: () => request("/auth/me"),
-    // Note: Si l'inscription ne nécessite PAS de token, vous pouvez remplacer 'request' par 'publicPost' ici
-    register: (payload) => request("/auth/register", withBody("POST", payload)),
+
+    register: (payload) =>
+        publicPost("/auth/register", payload),
+
     practitionerOptions: () => request("/auth/practitioner-options"),
-    requestPractitioner: (payload) => request("/auth/practitioner-requests", withBody("POST", payload)),
+
+    requestPractitioner: (payload) =>
+        request("/auth/practitioner-requests", withBody("POST", payload)),
 };
 
 // ================= PATIENT =================
@@ -116,6 +118,12 @@ const patient = {
         list: () => request("/patient/records"),
         results: () => request("/patient/records/results"),
     },
+
+    notifications: {
+  list: () => request('/patient/notifications'),
+  read: (id) => request(`/patient/notifications/${id}/read`, { method: 'PATCH' }),
+  readAll: () => request('/patient/notifications/read-all', { method: 'PATCH' }),
+},
 };
 
 // ================= PRACTITIONER =================

@@ -35,6 +35,41 @@ export async function updateAppointmentStatus(practitionerId, appointmentId, sta
     err.status = 404;
     throw err;
   }
+
+  // ✅ US-20 : Créer une notification pour le patient
+if (['cancelled', 'confirmed', 'completed'].includes(status)) {
+  const appt = result.rows[0];
+  const patientCheck = await pool.query(
+    `SELECT patient_id FROM appointments WHERE id = $1`,
+    [appointmentId]
+  );
+  const patientId = patientCheck.rows[0]?.patient_id;
+
+  if (patientId) {
+    const messages = {
+      cancelled: {
+        title: '🚨 Rendez-vous annulé',
+        message: `Votre rendez-vous du ${new Date(appt.appointment_date).toLocaleDateString('fr-FR')} à ${appt.appointment_time?.slice(0,5)} a été annulé par votre praticien.`
+      },
+      confirmed: {
+        title: '✅ Rendez-vous confirmé',
+        message: `Votre rendez-vous du ${new Date(appt.appointment_date).toLocaleDateString('fr-FR')} à ${appt.appointment_time?.slice(0,5)} est confirmé.`
+      },
+      completed: {
+        title: '📋 Consultation terminée',
+        message: `Votre consultation du ${new Date(appt.appointment_date).toLocaleDateString('fr-FR')} est terminée. Un compte-rendu sera disponible prochainement.`
+      }
+    };
+
+    const msg = messages[status];
+    await pool.query(
+      `INSERT INTO notifications (user_id, appointment_id, type, title, message)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [patientId, appointmentId, `appointment_${status}`, msg.title, msg.message]
+    );
+  }
+}
+
   return result.rows[0];
 }
 

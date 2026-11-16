@@ -88,80 +88,139 @@ async function rollbackKeycloakUser(keycloakId) {
     }
 }
 
+
 export async function registerPatient(values, ip) {
     const { firstName, lastName, email, phone, password } = values;
+
+    const normalizedEmail = email.trim().toLowerCase();
     const fullName = `${firstName} ${lastName}`;
 
-    // 1. Email déjà présent dans MedLink (insensible à la casse)
+    // 1. Vérifier si l'utilisateur existe déjà dans PostgreSQL
     const existing = await pool.query(
         'SELECT 1 FROM users WHERE lower(email) = $1',
-        [email]
+        [normalizedEmail]
     );
+
     if (existing.rows.length > 0) {
         throw new RegistrationError('CONFLICT');
     }
 
-    // 2. Création du compte dans Keycloak (le mot de passe est géré par Keycloak)
     let keycloakId;
-    try {
-        keycloakId = await createKeycloakUser({ email, firstName, lastName, phone, password });
-    } catch (err) {
-        if (err instanceof KeycloakError && err.status === 409) {
-            throw new RegistrationError('CONFLICT');
-        }
-        if (err instanceof KeycloakError && err.status === 400) {
-            throw new RegistrationError('REJECTED');
-        }
-        console.error('Inscription : création Keycloak échouée :', err.message);
-        throw new RegistrationError('FAILED');
-    }
-
-    // 3. Rôle patient + profil PostgreSQL. En cas d'échec, on annule côté Keycloak.
     let newUserId;
+
     try {
+        // 2. Créer le compte dans Keycloak
+        console.log(`Création Keycloak pour ${normalizedEmail}...`);
+
+        keycloakId = await createKeycloakUser({
+            email: normalizedEmail,
+            firstName,
+            lastName,
+            phone,
+            password
+        });
+
+        console.log(`Utilisateur Keycloak créé : ${keycloakId}`);
+
+        // 3. Attribuer le rôle patient dans Keycloak
         await assignRealmRole(keycloakId, 'patient');
 
-        const inserted = await pool.query(
-            `INSERT INTO users (email, password_hash, full_name, role, phone, keycloak_id)
-             VALUES ($1, NULL, $2, 'patient', $3, $4)
+        console.log('Rôle patient attribué dans Keycloak.');
+
+        // 4. Générer le hash pour conserver la compatibilité
+        // avec le login actuel basé sur bcrypt
+        const passwordHash = await bcrypt.hash(password, 12);
+
+        // 5. Créer le profil dans PostgreSQL
+        const result = await pool.query(
+            `INSERT INTO users
+                (email, password_hash, full_name, role, phone, keycloak_id)
+             VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING id`,
-            [email, fullName, phone, keycloakId]
+            [
+                normalizedEmail,
+                passwordHash,
+                fullName,
+                'patient',
+                phone || null,
+                keycloakId
+            ]
         );
-        newUserId = inserted.rows[0].id;
+
+        newUserId = result.rows[0].id;
+
+        console.log(`Profil PostgreSQL créé : ${newUserId}`);
+
     } catch (err) {
-        await rollbackKeycloakUser(keycloakId);
+        // 6. En cas d'échec, supprimer le compte Keycloak
+        if (keycloakId) {
+            try {
+                await rollbackKeycloakUser(keycloakId);
+                console.log('Compte Keycloak supprimé après échec.');
+            } catch (rollbackError) {
+                console.error(
+                    'Échec du rollback Keycloak :',
+                    rollbackError.message
+                );
+            }
+        }
+
+        if (
+            err instanceof KeycloakError &&
+            err.status === 409
+        ) {
+            throw new RegistrationError('CONFLICT');
+        }
+
+        if (
+            err instanceof KeycloakError &&
+            err.status === 400
+        ) {
+            throw new RegistrationError('REJECTED');
+        }
 
         if (err.code === '23505') {
             throw new RegistrationError('CONFLICT');
         }
-        console.error(
-            `Inscription : échec après création Keycloak (${keycloakId}) :`,
-            err.message
-        );
+
+        console.error('Erreur inscription :', err.message);
         throw new RegistrationError('FAILED');
     }
 
-    // 4. Email de vérification : un échec ne doit pas annuler l'inscription.
-    //    Keycloak redemandera la vérification à la première connexion.
-    try {
-        await sendVerifyEmail(keycloakId);
-    } catch (err) {
-        console.error('Inscription : email de vérification non envoyé :', err.message);
-    }
-
-    // 5. Journal d'audit
+    // 7. Enregistrer l'action dans le journal d'audit
     try {
         await pool.query(
-            `INSERT INTO journal_audit (utilisateur_id, action, ressource, adresse_ip)
+            `INSERT INTO journal_audit
+                (utilisateur_id, action, ressource, adresse_ip)
              VALUES ($1, 'REGISTER', $2, $3)`,
-            [newUserId, "Inscription patient (CGU et politique de confidentialité acceptées)", ip || null]
+            [
+                newUserId,
+                'Inscription patient',
+                ip || null
+            ]
         );
     } catch (err) {
-        console.error('Inscription : journalisation impossible :', err.message);
+        console.error(
+            'Erreur journalisation :',
+            err.message
+        );
+    }
+
+    // 8. Envoyer l'email de vérification
+    // Une erreur SMTP ne doit pas annuler le compte créé.
+    try {
+        await sendVerifyEmail(keycloakId);
+        console.log('Email de vérification demandé à Keycloak.');
+    } catch (err) {
+        console.error(
+            'Email de vérification non envoyé :',
+            err.message
+        );
     }
 
     return { id: newUserId };
 }
+
 
 // ---------------------------------------------------------------------------
 // Demande de compte praticien : simple enregistrement en attente de validation.

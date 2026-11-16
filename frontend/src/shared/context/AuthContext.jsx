@@ -70,20 +70,23 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    if (logoutInProgress.current) return;
+  if (logoutInProgress.current) return;
 
-    logoutInProgress.current = true;
-    setUser(null);
+  logoutInProgress.current = true;
+  setUser(null);
 
-    try {
-      await keycloak.logout({
-        redirectUri: window.location.origin + '/login',
-      });
-    } catch (error) {
-      logoutInProgress.current = false;
-      throw error;
-    }
-  };
+  try {
+    sessionStorage.setItem('medlink-logout', '1');
+
+    await keycloak.logout({
+      redirectUri: window.location.origin + '/login',
+    });
+  } catch (error) {
+    logoutInProgress.current = false;
+    sessionStorage.removeItem('medlink-logout');
+    throw error;
+  }
+};
 
   // US-40 : déconnexion après 15 min d'inactivité.
   // Le hook est appelé ici, au premier niveau du composant, et jamais dans logout().

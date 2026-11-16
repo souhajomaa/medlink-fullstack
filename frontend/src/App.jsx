@@ -29,6 +29,7 @@ import AdminUsers from './modules/admin/pages/AdminUsers';
 import AdminCliniques from './modules/admin/pages/AdminCliniques';
 import AdminAudit from './modules/admin/pages/AdminAudit';
 
+
 // Protection : utilisateur connecté
 function PrivateRoute({ children }) {
     const { user, loading } = useAuth();
