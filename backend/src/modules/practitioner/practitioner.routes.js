@@ -1,17 +1,17 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../../shared/middleware/auth.js';
-import { 
-  getAppointments, 
-  patchAppointmentStatus, 
-  getDisponibilites,
-  postDisponibilite,
-  removeDisponibilite, 
-  searchPatients,
-  getPatientRecords, 
-  postMedicalRecord,
-  postLabResult,
-  getPatientResults,
-  listRecords // ✅ 1. IMPORT AJOUTÉ ICI
+import {
+    getAppointments,
+    patchAppointmentStatus,
+    getDisponibilites,
+    postDisponibilite,
+    removeDisponibilite,
+    searchPatients,
+    getPatientRecords,
+    postMedicalRecord,
+    postLabResult,
+    getPatientResults,
+    listRecords // ✅ 1. IMPORT AJOUTÉ ICI
 } from './practitioner.controller.js';
 
 const router = Router();

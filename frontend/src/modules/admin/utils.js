@@ -21,6 +21,11 @@ const ACTION_LABELS = {
     ADMIN_UPDATE_CLINIQUE: 'Modification de clinique',
     ADMIN_DELETE_CLINIQUE: 'Suppression de clinique',
     ADMIN_ASSIGN_PRACTITIONERS: 'Affectation de praticiens',
+    ADMIN_CREATE_APPOINTMENT: 'Rendez-vous créé pour un patient',
+    ADMIN_CANCEL_APPOINTMENT: 'Annulation de rendez-vous',
+    ADMIN_EXPORT_STATS: 'Export de statistiques anonymisées',
+    ADMIN_SAVE_APPELS: "Saisie des appels de la semaine",
+    ADMIN_SAVE_APPELS_REFERENCE: "Référence des appels modifiée",
 };
 export const actionLabel = (action) => ACTION_LABELS[action] || action;
 

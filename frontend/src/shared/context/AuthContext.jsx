@@ -24,6 +24,7 @@ function initKeycloakOnce() {
       onLoad: 'check-sso',
       pkceMethod: 'S256',
       checkLoginIframe: false,
+      silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html',
     });
   }
   return keycloakInitPromise;
@@ -53,16 +54,22 @@ export function AuthProvider({ children }) {
     const initializeAuth = async () => {
       try {
         const authenticated = await initKeycloakOnce();
-        // TRACE TEMPORAIRE (à retirer une fois la boucle comprise)
-        console.log('[auth] 1. init Keycloak : authenticated =', authenticated);
 
         if (authenticated) {
           clearSession('medlink-login-attempt');
+
+          // Rafraîchit le token s'il expire pendant la navigation
+          keycloak.onTokenExpired = () => {
+            keycloak.updateToken(30).catch(() => {
+              console.warn('Session expirée, déconnexion...');
+              if (mounted) setUser(null);
+            });
+          };
+
           const profile = await api.auth.me();
-                    if (!profile || !profile.role) {
+          if (!profile || !profile.role) {
             throw new Error("Profil utilisateur illisible (réponse vide de l'API)");
           }
-          console.log('[auth] 2. /me OK, rôle =', profile.role);
 
           clearSession(MFA_RETRY_KEY);
           if (mounted) {
@@ -71,7 +78,7 @@ export function AuthProvider({ children }) {
           }
         }
       } catch (error) {
-        console.error('[auth] 2. ÉCHEC :', error.status, error.code, error.message);
+        console.error('[auth] ÉCHEC :', error.status, error.code, error.message);
 
         // MFA (US-17, US-34) : TOTP non configuré -> on ferme la session SSO une seule fois,
         // Keycloak demandera la configuration à la prochaine connexion.

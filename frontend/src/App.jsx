@@ -28,6 +28,9 @@ import AdminDashboard from './modules/admin/pages/Admin';
 import AdminUsers from './modules/admin/pages/AdminUsers';
 import AdminCliniques from './modules/admin/pages/AdminCliniques';
 import AdminAudit from './modules/admin/pages/AdminAudit';
+import AdminRendezVous from './modules/admin/pages/AdminRendezVous';
+import AdminStats from './modules/admin/pages/AdminStats';
+import AdminAppels from './modules/admin/pages/AdminAppels';
 
 
 // Protection : utilisateur connecté
@@ -97,6 +100,9 @@ export default function App() {
                 <Route path="admin/users" element={<RoleRoute roles={['admin']}><AdminUsers /></RoleRoute>} />
                 <Route path="admin/cliniques" element={<RoleRoute roles={['admin']}><AdminCliniques /></RoleRoute>} />
                 <Route path="admin/audit" element={<RoleRoute roles={['admin']}><AdminAudit /></RoleRoute>} />
+                <Route path="admin/rendez-vous" element={<RoleRoute roles={['admin']}><AdminRendezVous /></RoleRoute>} />
+                <Route path="admin/statistiques" element={<RoleRoute roles={['admin']}><AdminStats /></RoleRoute>} />
+                <Route path="admin/appels" element={<RoleRoute roles={['admin']}><AdminAppels /></RoleRoute>} />
             </Route>
 
             {/* Pages inexistantes */}

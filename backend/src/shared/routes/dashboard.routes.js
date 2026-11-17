@@ -116,12 +116,13 @@ router.get("/", authenticate, async (req, res) => {
                 a.reason,
                 a.type,
                 a.status,
-                a.specialty,
+                pr.specialty AS specialty,
                 u.full_name AS patient_name,
                 c.nom AS clinique_nom,
                 c.ville AS clinique_ville
              FROM appointments a
              JOIN users u ON u.id = a.patient_id
+             JOIN users pr ON pr.id = a.practitioner_id
              LEFT JOIN cliniques c ON c.id = a.clinique_id
              WHERE a.practitioner_id = $1
              AND a.appointment_date = CURRENT_DATE
