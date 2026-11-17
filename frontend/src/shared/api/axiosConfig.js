@@ -36,8 +36,12 @@ async function request(path, options = {}) {
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-        throw new Error(data.error || `Erreur ${res.status}`);
-    }
+    const err = new Error(data.error || `Erreur ${res.status}`);
+    err.status = res.status;
+    err.code = data.code;
+    err.fields = data.fields || {};
+    throw err;
+}
 
     return data;
 }
@@ -96,8 +100,14 @@ const auth = {
     register: (payload) =>
         publicPost("/auth/register", payload),
 
-    practitionerOptions: () => request("/auth/practitioner-options"),
+    practitionerOptions: () =>
+        request("/auth/practitioner-options"),
 
+    // Inscription directe d'un praticien (fonctionnalité de Hanen)
+    registerPractitioner: (payload) =>
+        publicPost("/auth/register-practitioner", payload),
+
+    // Demande de création de compte praticien (fonctionnalité à conserver)
     requestPractitioner: (payload) =>
         request("/auth/practitioner-requests", withBody("POST", payload)),
 };
