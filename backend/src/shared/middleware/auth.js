@@ -1,7 +1,7 @@
-
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import dotenv from 'dotenv';
 import pool from '../utils/db.js';
+import { hasOtp } from '../../modules/admin/keycloak.admin.js';
 
 dotenv.config();
 
@@ -17,6 +17,24 @@ if (!JWKS_URL || !KEYCLOAK_ISSUER) {
 }
 
 const JWKS = createRemoteJWKSet(new URL(JWKS_URL));
+
+// MFA (US-17, US-34) : ces rôles doivent avoir un TOTP enregistré.
+// Keycloak exige déjà l'OTP à la connexion (flow "browser-mfa") ; ce contrôle est une
+// 2e barrière côté API. Résultat positif mis en cache 60 s.
+const MFA_ROLES = ['practitioner', 'admin', 'patient'];
+const mfaCache = new Map(); // keycloak_id -> expiration (ms)
+
+export function invalidateMfaCache(keycloakId) {
+  mfaCache.delete(keycloakId);
+}
+
+async function mfaSatisfied(user, keycloakId) {
+  if (!MFA_ROLES.includes(user.role)) return true;
+  if ((mfaCache.get(keycloakId) || 0) > Date.now()) return true;
+  const ok = await hasOtp(keycloakId);
+  if (ok) mfaCache.set(keycloakId, Date.now() + 60_000);
+  return ok;
+}
 
 // Middleware d'authentification Keycloak
 export async function authenticate(req, res, next) {
@@ -66,6 +84,23 @@ export async function authenticate(req, res, next) {
     if (result.rows.length === 0) {
       return res.status(403).json({
         error: 'Compte Keycloak non associé à un profil MedLink'
+      });
+    }
+
+    // MFA obligatoire (échec fermé si Keycloak est injoignable)
+    let mfaOk;
+    try {
+      mfaOk = await mfaSatisfied(result.rows[0], payload.sub);
+    } catch (e) {
+      console.error('[auth] Vérification MFA impossible :', e.message);
+      return res.status(503).json({
+        error: 'Vérification MFA indisponible, réessayez'
+      });
+    }
+    if (!mfaOk) {
+      return res.status(403).json({
+        error: 'Double authentification (TOTP) non configurée : reconnectez-vous pour la configurer',
+        code: 'MFA_REQUIRED'
       });
     }
 

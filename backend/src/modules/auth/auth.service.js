@@ -223,8 +223,9 @@ export async function registerPatient(values, ip) {
 
 
 // ---------------------------------------------------------------------------
-// Demande de compte praticien : simple enregistrement en attente de validation.
-// Aucun compte Keycloak ni profil `users` n'est créé ici.
+// Inscription praticien : même principe que l'inscription patient.
+// Keycloak d'abord, puis le profil PostgreSQL (users + lien avec la clinique).
+// Aucune validation par un administrateur.
 // ---------------------------------------------------------------------------
 
 export async function getPractitionerOptions() {
@@ -232,28 +233,90 @@ export async function getPractitionerOptions() {
     return { specialties: PRACTITIONER_SPECIALTIES, cliniques: cliniques.rows };
 }
 
-export async function createPractitionerRequest(values, ip) {
-    const { firstName, lastName, email, phone, specialty, cliniqueId, orderNumber } = values;
+export async function registerPractitioner(values, ip) {
+    const { firstName, lastName, email, phone, password, specialty, cliniqueId, orderNumber } = values;
+    const fullName = `${firstName} ${lastName}`;
 
+    // 1. La clinique choisie doit exister
     const clinique = await pool.query('SELECT 1 FROM cliniques WHERE id = $1', [cliniqueId]);
     if (clinique.rows.length === 0) {
         throw new RegistrationError('BAD_CLINIQUE');
     }
 
-    // Email déjà utilisé par un compte : on ne le révèle pas (même réponse que pour une demande réussie).
+    // 2. Email déjà présent dans MedLink (insensible à la casse)
     const existing = await pool.query('SELECT 1 FROM users WHERE lower(email) = $1', [email]);
     if (existing.rows.length > 0) {
-        return { created: false };
+        throw new RegistrationError('CONFLICT');
     }
 
-    // Une seule demande en attente par email (index unique) : un doublon est ignoré sans erreur.
-    const inserted = await pool.query(
-        `INSERT INTO practitioner_requests
-            (first_name, last_name, email, phone, specialty, clinique_id, order_number, ip_address)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         ON CONFLICT DO NOTHING
-         RETURNING id`,
-        [firstName, lastName, email, phone, specialty, cliniqueId, orderNumber, ip || null]
-    );
-    return { created: inserted.rows.length > 0 };
+    // 3. Création du compte dans Keycloak (le mot de passe est géré par Keycloak)
+    let keycloakId;
+    try {
+        keycloakId = await createKeycloakUser({ email, firstName, lastName, phone, password });
+    } catch (err) {
+        if (err instanceof KeycloakError && err.status === 409) {
+            throw new RegistrationError('CONFLICT');
+        }
+        if (err instanceof KeycloakError && err.status === 400) {
+            throw new RegistrationError('REJECTED');
+        }
+        console.error('Inscription praticien : création Keycloak échouée :', err.message);
+        throw new RegistrationError('FAILED');
+    }
+
+    // 4. Rôle praticien + profil PostgreSQL + lien clinique (dans une transaction).
+    //    En cas d'échec, on annule aussi côté Keycloak.
+    let newUserId;
+    const client = await pool.connect();
+    try {
+        await assignRealmRole(keycloakId, 'practitioner');
+
+        await client.query('BEGIN');
+        const inserted = await client.query(
+            `INSERT INTO users (email, password_hash, full_name, role, phone, specialty, order_number, keycloak_id)
+             VALUES ($1, NULL, $2, 'practitioner', $3, $4, $5, $6)
+             RETURNING id`,
+            [email, fullName, phone, specialty, orderNumber, keycloakId]
+        );
+        newUserId = inserted.rows[0].id;
+        await client.query(
+            'INSERT INTO practitioner_clinique (practitioner_id, clinique_id) VALUES ($1, $2)',
+            [newUserId, cliniqueId]
+        );
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        await rollbackKeycloakUser(keycloakId);
+
+        if (err.code === '23505') {
+            throw new RegistrationError('CONFLICT');
+        }
+        console.error(
+            `Inscription praticien : échec après création Keycloak (${keycloakId}) :`,
+            err.message
+        );
+        throw new RegistrationError('FAILED');
+    } finally {
+        client.release();
+    }
+
+    // 5. Email de vérification : un échec ne doit pas annuler l'inscription.
+    try {
+        await sendVerifyEmail(keycloakId);
+    } catch (err) {
+        console.error('Inscription praticien : email de vérification non envoyé :', err.message);
+    }
+
+    // 6. Journal d'audit
+    try {
+        await pool.query(
+            `INSERT INTO journal_audit (utilisateur_id, action, ressource, adresse_ip)
+             VALUES ($1, 'REGISTER', $2, $3)`,
+            [newUserId, "Inscription praticien (CGU et politique de confidentialité acceptées)", ip || null]
+        );
+    } catch (err) {
+        console.error('Inscription praticien : journalisation impossible :', err.message);
+    }
+
+    return { id: newUserId };
 }

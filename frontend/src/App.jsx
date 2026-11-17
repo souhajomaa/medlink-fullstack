@@ -32,11 +32,24 @@ import AdminAudit from './modules/admin/pages/AdminAudit';
 
 // Protection : utilisateur connecté
 function PrivateRoute({ children }) {
-    const { user, loading } = useAuth();
+    const { user, loading, authError, logout } = useAuth();
     if (loading) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-surface">
                 <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+        );
+    }
+    // Session Keycloak valide mais profil refusé par l'API : on affiche l'erreur
+    // au lieu de relancer la connexion en boucle.
+    if (!user && authError) {
+        return (
+            <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface p-6 text-center">
+                <h1 className="text-xl font-bold">Connexion impossible</h1>
+                <p className="max-w-md text-sm text-on-variant">{authError}</p>
+                <button className="btn-primary" onClick={() => logout().catch(() => {})}>
+                    Se déconnecter
+                </button>
             </div>
         );
     }

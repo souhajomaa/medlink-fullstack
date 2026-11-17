@@ -3,7 +3,7 @@ import {
     getUserById,
     registerPatient,
     getPractitionerOptions,
-    createPractitionerRequest,
+    registerPractitioner,
     RegistrationError,
 } from './auth.service.js';
 import {
@@ -93,8 +93,8 @@ export async function practitionerOptions(req, res) {
     }
 }
 
-// Demande de compte praticien : enregistrée en attente de validation par un administrateur.
-export async function requestPractitioner(req, res) {
+// Inscription praticien : compte créé directement (Keycloak + profil MedLink), sans validation admin.
+export async function signupPractitioner(req, res) {
     const { valid, errors, values } = validatePractitionerRequest(req.body);
 
     if (!valid) {
@@ -102,23 +102,38 @@ export async function requestPractitioner(req, res) {
     }
 
     try {
-        await createPractitionerRequest(values, req.ip);
+        await registerPractitioner(values, req.ip);
 
-        // Même réponse que l'adresse soit connue ou non : on ne révèle pas si un compte existe.
         return res.status(201).json({
             message:
-                'Demande envoyée. Elle sera examinée avant l\'activation de votre compte.',
+                'Compte créé. Vérifiez votre boîte mail pour confirmer votre adresse email avant de vous connecter.',
         });
     } catch (err) {
-        if (err instanceof RegistrationError && err.code === 'BAD_CLINIQUE') {
-            return res.status(400).json({
-                error: 'Données invalides',
-                fields: { cliniqueId: 'Veuillez choisir une clinique' },
-            });
+        if (err instanceof RegistrationError) {
+            if (err.code === 'CONFLICT') {
+                // Message volontairement neutre : il ne confirme pas qu'un compte existe.
+                return res.status(409).json({
+                    error:
+                        "Impossible de créer le compte avec ces informations. Si vous avez déjà un compte, connectez-vous ou réinitialisez votre mot de passe.",
+                });
+            }
+            if (err.code === 'REJECTED') {
+                return res.status(400).json({
+                    error: 'Données invalides',
+                    fields: { password: PASSWORD_RULES_MESSAGE },
+                });
+            }
+            if (err.code === 'BAD_CLINIQUE') {
+                return res.status(400).json({
+                    error: 'Données invalides',
+                    fields: { cliniqueId: 'Veuillez choisir une clinique' },
+                });
+            }
         }
-        console.error('Demande praticien :', err.message);
+
+        console.error('Erreur inscription praticien :', err.message);
         return res.status(500).json({
-            error: 'Demande impossible pour le moment. Veuillez réessayer.',
+            error: 'Inscription impossible pour le moment. Veuillez réessayer.',
         });
     }
 }

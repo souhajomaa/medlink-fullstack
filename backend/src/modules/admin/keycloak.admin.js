@@ -24,8 +24,8 @@ async function serviceToken() {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
             grant_type: 'client_credentials',
-            client_id: process.env.KEYCLOAK_ADMIN_CLIENT_ID || 'medlink-admin-api',
-            client_secret: process.env.KEYCLOAK_ADMIN_CLIENT_SECRET || '',
+            client_id: process.env.KEYCLOAK_BACKEND_CLIENT_ID,
+            client_secret: process.env.KEYCLOAK_BACKEND_CLIENT_SECRET,
         }),
     }).catch(() => null);
 
@@ -119,4 +119,26 @@ export async function setUserRole(id, role) {
         await kc(`/users/${id}/role-mappings/realm`, { method: 'POST', body: [target] });
     }
     if (toRemove.length) await kc(`/users/${id}/logout`, { method: 'POST' });
+}
+
+/**
+ * MFA / TOTP (US-17, US-34)
+ * - hasOtp : le compte a-t-il au moins un authentificateur TOTP enregistré ?
+ * - resetOtp : supprime les TOTP du compte (téléphone perdu) et force une nouvelle configuration
+ *   à la prochaine connexion, puis coupe les sessions ouvertes.
+ */
+export async function hasOtp(id) {
+    const creds = await kc(`/users/${id}/credentials`);
+    return Array.isArray(creds) && creds.some((c) => c.type === 'otp');
+}
+
+export async function resetOtp(id) {
+    const creds = await kc(`/users/${id}/credentials`);
+    for (const c of (creds || []).filter((c) => c.type === 'otp')) {
+        await kc(`/users/${id}/credentials/${c.id}`, { method: 'DELETE' });
+    }
+    const current = await getUser(id);
+    const actions = new Set([...(current.requiredActions || []), 'CONFIGURE_TOTP']);
+    await putMerged(id, { requiredActions: [...actions] });
+    await kc(`/users/${id}/logout`, { method: 'POST' });
 }

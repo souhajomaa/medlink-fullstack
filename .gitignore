@@ -54,3 +54,7 @@ desktop.ini
 # Database backups
 *.sql
 *.dump
+
+
+# ... mais on garde les migrations du projet
+!backend/migrations/*.sql

@@ -5,8 +5,8 @@ import { api } from '../../../shared/api/axiosConfig';
 import logo from '../../../shared/assets/logo-medlink.jpg';
 import { Shell, Field, InputShell, Ic, TEAL } from '../components/AuthUi';
 
-// Demande de compte praticien : enregistrée « en attente », validée ensuite par un administrateur.
-// Aucun mot de passe ici : il sera défini après validation.
+// Inscription praticien : le compte est créé directement (Keycloak + profil MedLink).
+// Après vérification de l'email, le praticien se connecte et arrive sur son dashboard (/app).
 
 // --- Règles identiques à backend/src/shared/utils/validators.js -------------
 const NAME_REGEX = /^[\p{L}][\p{L}\p{M}' -]{1,49}$/u;
@@ -22,6 +22,22 @@ function normalizePhone(raw) {
   return TN_PHONE_REGEX.test(digits) ? `+216${digits}` : null;
 }
 
+const PASSWORD_CHECKS = [
+  { id: 'len', label: 'Au moins 12 caractères', test: (p) => p.length >= 12 && p.length <= 128 },
+  { id: 'lower', label: 'Une minuscule', test: (p) => /\p{Ll}/u.test(p) },
+  { id: 'upper', label: 'Une majuscule', test: (p) => /\p{Lu}/u.test(p) },
+  { id: 'digit', label: 'Un chiffre', test: (p) => /\p{Nd}/u.test(p) },
+  { id: 'special', label: 'Un caractère spécial', test: (p) => /[^\p{L}\p{N}]/u.test(p) },
+];
+
+function strengthOf(password) {
+  const score = PASSWORD_CHECKS.filter((c) => c.test(password)).length;
+  if (!password) return { score: 0, label: '', color: 'bg-slate-200', text: 'text-slate-400' };
+  if (score <= 2) return { score, label: 'Faible', color: 'bg-red-500', text: 'text-red-600' };
+  if (score <= 4) return { score, label: 'Moyen', color: 'bg-amber-500', text: 'text-amber-600' };
+  return { score, label: 'Fort', color: 'bg-emerald-500', text: 'text-emerald-600' };
+}
+
 function validate(v) {
   const errors = {};
   if (!NAME_REGEX.test(v.firstName.trim())) errors.firstName = 'Prénom invalide';
@@ -30,6 +46,12 @@ function validate(v) {
   const email = v.email.trim().toLowerCase();
   if (!email || email.length > 254 || !EMAIL_REGEX.test(email)) errors.email = 'Adresse email invalide';
   if (!normalizePhone(v.phone)) errors.phone = 'Numéro tunisien invalide (ex. 22 123 456)';
+
+  if (!PASSWORD_CHECKS.every((c) => c.test(v.password)) || v.password.toLowerCase() === email) {
+    errors.password = 'Le mot de passe ne respecte pas toutes les règles';
+  }
+  if (v.confirm !== v.password) errors.confirm = 'Les mots de passe ne correspondent pas';
+
   if (!v.specialty) errors.specialty = 'Veuillez choisir une spécialité';
   if (!v.cliniqueId) errors.cliniqueId = 'Veuillez choisir une clinique';
   if (!ORDER_NUMBER_REGEX.test(v.orderNumber.trim())) errors.orderNumber = "Numéro d'inscription à l'Ordre invalide";
@@ -44,6 +66,8 @@ const INITIAL = {
   lastName: '',
   email: '',
   phone: '',
+  password: '',
+  confirm: '',
   specialty: '',
   cliniqueId: '',
   orderNumber: '',
@@ -53,28 +77,29 @@ const INITIAL = {
 const PANEL = {
   title: 'Rejoignez le réseau MedLink',
   highlight: 'et gérez vos consultations.',
-  text: "Faites votre demande de compte praticien. Après vérification de vos informations, votre accès sera activé.",
+  text: 'Créez votre compte praticien et accédez à votre espace professionnel.',
   features: [
     ['calendar', 'Agenda et rendez-vous centralisés'],
     ['file', 'Accès sécurisé aux dossiers de vos patients'],
-    ['shield', 'Compte activé après vérification par notre équipe'],
+    ['shield', 'Données de santé protégées et confidentielles'],
   ],
 };
 
 export default function SignupPractitioner() {
-  const { user, loading } = useAuth();
+  const { user, loading, login } = useAuth();
   const navigate = useNavigate();
 
   const [values, setValues] = useState(INITIAL);
   const [touched, setTouched] = useState({});
   const [serverErrors, setServerErrors] = useState({});
   const [formError, setFormError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(null);
   const [options, setOptions] = useState({ specialties: [], cliniques: [] });
   const [optionsError, setOptionsError] = useState(false);
 
-  // Déjà connecté : inutile de faire une demande.
+  // Déjà connecté : direction le dashboard (/app affiche l'espace selon le rôle).
   useEffect(() => {
     if (!loading && user) navigate('/app', { replace: true });
   }, [user, loading, navigate]);
@@ -108,18 +133,19 @@ export default function SignupPractitioner() {
 
     setSubmitting(true);
     try {
-      await api.auth.requestPractitioner({
+      await api.auth.registerPractitioner({
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),
         email: values.email.trim().toLowerCase(),
         phone: values.phone,
+        password: values.password,
         specialty: values.specialty,
         cliniqueId: Number(values.cliniqueId),
         orderNumber: values.orderNumber.trim(),
         acceptTerms: values.acceptTerms,
       });
       setSuccess(values.email.trim().toLowerCase());
-      setValues(INITIAL);
+      setValues(INITIAL); // le mot de passe ne reste pas en mémoire dans le formulaire
     } catch (err) {
       if (err.status === 400 && err.fields && Object.keys(err.fields).length) {
         setServerErrors(err.fields);
@@ -127,7 +153,7 @@ export default function SignupPractitioner() {
       } else if (err.status === 429) {
         setFormError('Trop de tentatives. Patientez quelques minutes avant de réessayer.');
       } else {
-        setFormError(err.message || 'Demande impossible pour le moment.');
+        setFormError(err.message || 'Inscription impossible pour le moment.');
       }
     } finally {
       setSubmitting(false);
@@ -142,18 +168,19 @@ export default function SignupPractitioner() {
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-success-container text-success lg:mx-0">
             <Ic name="check" size={30} />
           </div>
-          <h1 className="mb-3 text-3xl font-extrabold tracking-tight">Demande envoyée</h1>
-          <p className="mb-2 text-slate-500">Votre demande de compte praticien a bien été reçue pour l'adresse</p>
+          <h1 className="mb-3 text-3xl font-extrabold tracking-tight">Compte créé</h1>
+          <p className="mb-2 text-slate-500">Votre compte praticien a été créé. Un email de confirmation a été envoyé à</p>
           <p className="mb-5 break-all text-lg font-semibold">{success}</p>
           <p className="mb-8 text-slate-500">
-            Elle sera examinée avant l'activation de votre compte. Nous reviendrons vers vous à cette adresse.
+            Cliquez sur le lien reçu pour confirmer votre adresse, puis connectez-vous pour accéder à votre espace.
           </p>
-          <Link
-            to="/"
+          <button
+            type="button"
+            onClick={() => login().catch(console.error)}
             className={`flex h-14 w-full items-center justify-center gap-2 rounded-xl font-bold text-white shadow-lg shadow-[#028f82]/25 transition ${TEAL}`}
           >
-            Retour à l'accueil <Ic name="arrow" size={18} />
-          </Link>
+            Aller à la connexion <Ic name="arrow" size={18} />
+          </button>
         </div>
       </Shell>
     );
@@ -181,6 +208,19 @@ export default function SignupPractitioner() {
 
   const chevron = <span className="text-slate-400"><Ic name="chevron" size={18} /></span>;
 
+  const strength = strengthOf(values.password);
+  const confirmOk = values.confirm !== '' && values.confirm === values.password;
+  const eyeButton = (
+    <button
+      type="button"
+      onClick={() => setShowPassword((s) => !s)}
+      className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-on-surface"
+      aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+    >
+      <Ic name={showPassword ? 'eyeOff' : 'eye'} size={19} />
+    </button>
+  );
+
   return (
     <Shell panel={PANEL}>
       <div className="mb-6 flex items-center gap-3 lg:hidden">
@@ -190,9 +230,9 @@ export default function SignupPractitioner() {
         <span className="font-display text-2xl font-extrabold tracking-tight">MedLink</span>
       </div>
 
-      <h1 className="text-3xl font-extrabold tracking-tight sm:text-[2rem]">Demande de compte praticien</h1>
+      <h1 className="text-3xl font-extrabold tracking-tight sm:text-[2rem]">Créer un compte praticien</h1>
       <p className="mb-7 mt-2 text-slate-500">
-        Renseignez vos informations professionnelles. Votre compte sera activé après vérification.
+        Renseignez vos informations professionnelles pour accéder à votre espace praticien.
       </p>
 
       {optionsError && (
@@ -240,6 +280,63 @@ export default function SignupPractitioner() {
               })}
             />
           </div>
+        </Field>
+
+        <Field id="password" label="Mot de passe" error={errorFor('password')}>
+          <InputShell icon="lock" right={eyeButton}>
+            <input
+              {...inputProps('password', {
+                type: showPassword ? 'text' : 'password',
+                autoComplete: 'new-password',
+                maxLength: 128,
+                className: fieldClass('password', 'pr-14'),
+              })}
+            />
+          </InputShell>
+
+          {values.password && (
+            <div className="mt-3 flex items-center gap-3" aria-live="polite">
+              <div className="flex flex-1 gap-1.5" aria-hidden="true">
+                {PASSWORD_CHECKS.map((c, i) => (
+                  <span key={c.id} className={`h-1.5 flex-1 rounded-full ${i < strength.score ? strength.color : 'bg-slate-200'}`} />
+                ))}
+              </div>
+              <span className={`w-12 text-right text-xs font-bold ${strength.text}`}>{strength.label}</span>
+            </div>
+          )}
+
+          <ul className="mt-3 flex flex-wrap gap-2" aria-label="Règles du mot de passe">
+            {PASSWORD_CHECKS.map((c) => {
+              const ok = c.test(values.password);
+              return (
+                <li
+                  key={c.id}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${
+                    ok ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  {ok ? <Ic name="check" size={12} /> : <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-slate-400" />}
+                  {c.label}
+                </li>
+              );
+            })}
+          </ul>
+        </Field>
+
+        <Field id="confirm" label="Confirmer le mot de passe" error={errorFor('confirm')}>
+          <InputShell
+            icon="lock"
+            right={confirmOk ? <span className="text-emerald-500"><Ic name="check" size={20} /></span> : null}
+          >
+            <input
+              {...inputProps('confirm', {
+                type: showPassword ? 'text' : 'password',
+                autoComplete: 'new-password',
+                maxLength: 128,
+                className: fieldClass('confirm', 'pr-12'),
+              })}
+            />
+          </InputShell>
         </Field>
 
         <div className="grid gap-5 sm:grid-cols-2">
@@ -301,15 +398,21 @@ export default function SignupPractitioner() {
             disabled={submitting}
             className={`flex h-14 w-full items-center justify-center gap-2 rounded-xl font-bold text-white shadow-lg shadow-[#028f82]/25 transition disabled:cursor-wait disabled:opacity-70 ${TEAL}`}
           >
-            {submitting ? 'Envoi en cours…' : (<>Envoyer ma demande <Ic name="arrow" size={18} /></>)}
+            {submitting ? 'Création du compte…' : (<>Créer mon compte <Ic name="arrow" size={18} /></>)}
           </button>
           <p className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-500">
-            <Ic name="shield" size={13} /> Votre demande est examinée avant l'activation de votre compte.
+            <Ic name="lock" size={13} /> Un email de vérification sera envoyé à l'adresse indiquée.
           </p>
         </div>
       </form>
 
       <div className="mt-7 space-y-2 border-t border-slate-100 pt-6 text-center text-slate-500">
+        <p>
+          Vous avez déjà un compte ?{' '}
+          <button type="button" onClick={() => login().catch(console.error)} className="font-bold text-[#028f82] hover:underline">
+            Se connecter
+          </button>
+        </p>
         <p>
           Vous êtes patient ?{' '}
           <Link to="/signup" className="font-bold text-[#028f82] hover:underline">Créer un compte patient</Link>

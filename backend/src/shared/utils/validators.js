@@ -92,6 +92,7 @@ export function validatePractitionerRequest(body = {}) {
   const specialty = typeof body.specialty === 'string' ? body.specialty.trim() : '';
   const orderNumber = typeof body.orderNumber === 'string' ? body.orderNumber.trim() : '';
   const cliniqueId = Number(body.cliniqueId);
+  const password = typeof body.password === 'string' ? body.password : '';
 
   if (!NAME_REGEX.test(firstName)) errors.firstName = 'Prénom invalide';
   if (!NAME_REGEX.test(lastName)) errors.lastName = 'Nom invalide';
@@ -101,6 +102,9 @@ export function validatePractitionerRequest(body = {}) {
   }
   if (!phone) {
     errors.phone = 'Numéro de téléphone tunisien invalide (ex. +216 22 123 456)';
+  }
+  if (!isPasswordCompliant(password, email)) {
+    errors.password = PASSWORD_RULES_MESSAGE;
   }
   if (!PRACTITIONER_SPECIALTIES.includes(specialty)) {
     errors.specialty = 'Veuillez choisir une spécialité';
@@ -119,6 +123,6 @@ export function validatePractitionerRequest(body = {}) {
   return {
     valid: Object.keys(errors).length === 0,
     errors,
-    values: { firstName, lastName, email, phone, specialty, cliniqueId, orderNumber },
+    values: { firstName, lastName, email, phone, password, specialty, cliniqueId, orderNumber },
   };
 }
