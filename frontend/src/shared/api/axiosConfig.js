@@ -34,6 +34,7 @@ async function request(path, options = {}) {
     const err = new Error(data.error || `Erreur ${res.status}`);
     err.status = res.status;
     err.code = data.code;
+    err.fields = data.fields || {};
     throw err;
   }
   return data; // must stay, otherwise /me returns undefined
@@ -100,29 +101,48 @@ const byRole = (map) => (...args) => {
 
 // --- Module AUTH ---
 const auth = {
-  me: () => request('/auth/me'),
-  register: (payload) => publicPost('/auth/register', payload),
-  practitionerOptions: () => request('/auth/practitioner-options'),
-  registerPractitioner: (payload) => publicPost('/auth/register-practitioner', payload),
-  requestPractitioner: (payload) => request('/auth/practitioner-requests', withBody('POST', payload)),
+    login: (email, password) =>
+        publicPost("/auth/login", { email, password }),
+
+    me: () => request("/auth/me"),
+
+    register: (payload) =>
+        publicPost("/auth/register", payload),
+
+    practitionerOptions: () =>
+        request("/auth/practitioner-options"),
+
+    // Inscription directe d'un praticien (fonctionnalité de Hanen)
+    registerPractitioner: (payload) =>
+        publicPost("/auth/register-practitioner", payload),
+
+    // Demande de création de compte praticien (fonctionnalité à conserver)
+    requestPractitioner: (payload) =>
+        request("/auth/practitioner-requests", withBody("POST", payload)),
 };
 
 // --- Module PATIENT ---
 const patient = {
-  practitioners: () => request('/patient/practitioners'),
-  doctors: () => request('/patient/doctors'),
-  appointments: {
-    list: () => request('/patient/appointments'),
-    create: (data) => request('/patient/appointments', withBody('POST', data)),
-    cancel: (id) => request(`/patient/appointments/${id}/cancel`, { method: 'PATCH' }),
-    reschedule: (id, data) =>
-      request(`/patient/appointments/${id}/reschedule`, withBody('PATCH', data)),
-  },
-  cancel: (id) => request(`/patient/appointments/${id}/cancel`, { method: 'PATCH' }),
-  records: {
-    list: () => request('/patient/records'),
-    results: () => request('/patient/records/results'),
-  },
+    doctors: () => request("/patient/doctors"),
+    practitioners: () => request("/patient/practitioners"),
+
+    appointments: {
+        list: () => request("/patient/appointments"),
+        create: (data) => request("/patient/appointments", withBody("POST", data)),
+        cancel: (id) => request(`/patient/appointments/${id}/cancel`, { method: "PATCH" }),
+        reschedule: (id, data) => request(`/patient/appointments/${id}/reschedule`, withBody("PATCH", data)),
+    },
+
+    records: {
+        list: () => request("/patient/records"),
+        results: () => request("/patient/records/results"),
+    },
+
+    notifications: {
+  list: () => request('/patient/notifications'),
+  read: (id) => request(`/patient/notifications/${id}/read`, { method: 'PATCH' }),
+  readAll: () => request('/patient/notifications/read-all', { method: 'PATCH' }),
+},
 };
 
 // --- Module PRACTITIONER ---

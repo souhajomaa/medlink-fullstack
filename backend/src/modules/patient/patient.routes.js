@@ -10,6 +10,8 @@ import {
   getResults,
 } from "./patient.controller.js";
 
+import { listNotifications, readNotification, readAll } from './notification.controller.js';
+
 const bookingLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -187,5 +189,10 @@ router.patch("/appointments/:id/reschedule", rescheduleAppointment);
  *         description: Non authentifié
  */
 router.get("/records/results", getResults);
+
+// ✅ US-20 : Notifications
+router.get('/notifications', authenticate, requireRole('patient'), listNotifications);
+router.patch('/notifications/:id/read', authenticate, requireRole('patient'), readNotification);
+router.patch('/notifications/read-all', authenticate, requireRole('patient'), readAll);
 
 export default router;

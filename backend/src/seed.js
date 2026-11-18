@@ -118,8 +118,20 @@ async function seed() {
         CONSTRAINT chk_heures CHECK (heure_fin > heure_debut)
       );
 
+      CREATE TABLE notifications (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  appointment_id INT REFERENCES appointments(id) ON DELETE SET NULL,
+  type VARCHAR(50) NOT NULL,
+  title VARCHAR(200) NOT NULL,
+  message TEXT NOT NULL,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
       CREATE INDEX IF NOT EXISTS idx_disponibilites_practitioner
         ON disponibilites (practitioner_id, date_debut, date_fin);
+      CREATE INDEX idx_notifications_user ON notifications(user_id, is_read);
     `);
 
     // Migration : ajoute practitioner_id si l'ancienne table ne l'avait pas
@@ -167,24 +179,22 @@ async function seed() {
 
     // 4. Utilisateurs
     const users = await pool.query(
-
-        `INSERT INTO users (email, password_hash, full_name, role, specialty, phone) VALUES
-                                                                                       ('admin@medlink.tn', $1, 'Admin Principal', 'admin', NULL, $2),
-                                                                                       ('patient@medlink.tn', $1, 'Amine Ben Salah', 'patient', NULL, $3),
-                                                                                       ('sara.patient@medlink.tn', $1, 'Sara Trabelsi', 'patient', NULL, $4),
-                                                                                       ('doctor@medlink.tn', $1, 'Dr. Karim Mansouri', 'practitioner', 'Cardiologie', $5),
-                                                                                       ('pediatre@medlink.tn', $1, 'Dr. Leila Gharbi', 'practitioner', 'Pédiatrie', $6)
-          RETURNING id, email, role`,
-        [
-          hash,
-          encrypt('+216 71 000 000'), // ✅ Chiffrement de l'admin
-          encrypt('+216 98 123 456'), // ✅ Chiffrement du patient 1
-          encrypt('+216 22 456 789'), // ✅ Chiffrement du patient 2
-          encrypt('+216 71 234 567'), // ✅ Chiffrement du médecin 1
-          encrypt('+216 71 345 678')  // ✅ Chiffrement du médecin 2
-        ]
+      `INSERT INTO users (email, password_hash, full_name, role, specialty, phone) VALUES
+         ('admin@medlink.tn', $1, 'Admin Principal', 'admin', NULL, $2),
+         ('patient@medlink.tn', $1, 'Amine Ben Salah', 'patient', NULL, $3),
+         ('sara.patient@medlink.tn', $1, 'Sara Trabelsi', 'patient', NULL, $4),
+         ('doctor@medlink.tn', $1, 'Dr. Karim Mansouri', 'practitioner', 'Cardiologie', $5),
+         ('pediatre@medlink.tn', $1, 'Dr. Leila Gharbi', 'practitioner', 'Pédiatrie', $6)
+       RETURNING id, email, role`,
+      [
+        hash,
+        encrypt('+216 71 000 000'),
+        encrypt('+216 98 123 456'),
+        encrypt('+216 22 456 789'),
+        encrypt('+216 71 234 567'),
+        encrypt('+216 71 345 678')
+      ]
     );
-
     const admin = users.rows[0].id;
     const patient1 = users.rows[1].id; // Amine
     const patient2 = users.rows[2].id; // Sara

@@ -7,6 +7,7 @@ import logo from '../../../shared/assets/logo-medlink.jpg';
 // Il évite la boucle : Keycloak → bouton Retour → /login → Keycloak → ...
 // Au retour, on affiche la page manuelle au lieu de renvoyer aussitôt.
 const FLAG = 'medlink-login-attempt';
+const LOGOUT_FLAG = 'medlink-logout';
 
 const readFlag = () => {
   try { return sessionStorage.getItem(FLAG) === '1'; } catch { return false; }
@@ -25,31 +26,45 @@ export default function Login() {
   const started = useRef(false);
 
   useEffect(() => {
-    if (loading) return;
+  if (loading) return;
 
-    if (user) {
-      clearFlag();
-      navigate('/app', { replace: true });
-      return;
-    }
+  // Utilisateur déjà connecté
+  if (user) {
+    clearFlag();
+    sessionStorage.removeItem(LOGOUT_FLAG);
+    navigate('/app', { replace: true });
+    return;
+  }
 
-    if (started.current) return;
-    started.current = true;
+  if (started.current) return;
+  started.current = true;
 
-    if (readFlag()) {
-      // Retour depuis Keycloak (bouton Retour) : on laisse l'utilisateur choisir.
-      clearFlag();
-      setManual(true);
-      return;
-    }
+  // Retour après une déconnexion volontaire :
+  // ne pas relancer automatiquement Keycloak.
+  if (sessionStorage.getItem(LOGOUT_FLAG) === '1') {
+    sessionStorage.removeItem(LOGOUT_FLAG);
+    clearFlag();
+    setManual(true);
+    return;
+  }
 
-    setFlag();
-    login().catch((error) => {
-      console.error('Erreur de connexion :', error);
-      clearFlag();
-      setManual(true);
-    });
-  }, [user, loading, login, navigate]);
+  // Retour depuis Keycloak avec le bouton "Retour"
+  if (readFlag()) {
+    clearFlag();
+    setManual(true);
+    return;
+  }
+
+  // Première arrivée sur /login :
+  // connexion automatique via Keycloak.
+  setFlag();
+
+  login().catch((error) => {
+    console.error('Erreur de connexion :', error);
+    clearFlag();
+    setManual(true);
+  });
+}, [user, loading, login, navigate]);
 
   // Page restaurée depuis le cache du navigateur (bouton Retour) : mode manuel.
   useEffect(() => {

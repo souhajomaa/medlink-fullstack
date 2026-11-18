@@ -115,7 +115,10 @@ export async function createUser(input) {
 
     const { firstName, lastName } = splitName(full_name);
     // Mot de passe temporaire à changer à la 1re connexion ; TOTP obligatoire pour praticiens et admins
-    const requiredActions = role === 'patient' ? ['UPDATE_PASSWORD'] : ['UPDATE_PASSWORD', 'CONFIGURE_TOTP'];
+    const requiredActions = [
+    'UPDATE_PASSWORD',
+    'CONFIGURE_TOTP',
+];
 
     const kcId = await kc.createUser({ email, firstName, lastName, password, requiredActions });
     try {

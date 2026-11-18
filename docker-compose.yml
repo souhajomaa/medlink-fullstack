@@ -1,3 +1,4 @@
+
 services:
   # 1. Base de données
   db:
@@ -26,22 +27,24 @@ services:
     ports:
       - "4000:4000"
     environment:
-      - NODE_ENV=production
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_USER=medlink
-      - DB_PASSWORD=medlink_secret
-      - DB_NAME=medlink
-      - JWT_SECRET=medlink_super_secret_jwt_2026
-      - ALLOW_LEGACY_AUTH=true
-      - KEYCLOAK_URL=http://keycloak:8080
-      - KEYCLOAK_PUBLIC_URL=http://localhost:8081
-      - KEYCLOAK_REALM=medlink
-      - KEYCLOAK_ADMIN_CLIENT_ID=medlink-backend
-      - KEYCLOAK_ADMIN_CLIENT_SECRET=dev-admin-secret-change-me
+      NODE_ENV: production
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: medlink
+      DB_PASSWORD: medlink_secret
+      DB_NAME: medlink
+      JWT_SECRET: medlink_super_secret_jwt_2026
+      ALLOW_LEGACY_AUTH: "true"
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_PUBLIC_URL: http://localhost:8081
+      KEYCLOAK_REALM: medlink
+      KEYCLOAK_BACKEND_CLIENT_ID: ${KEYCLOAK_BACKEND_CLIENT_ID}
+      KEYCLOAK_BACKEND_CLIENT_SECRET: ${KEYCLOAK_BACKEND_CLIENT_SECRET}
     depends_on:
       db:
         condition: service_healthy
+      keycloak:
+        condition: service_started
 
   # 3. Frontend (React + Nginx)
   frontend:
@@ -52,49 +55,35 @@ services:
     depends_on:
       - backend
 
-  # 4. Keycloak (Identity and Access Management)
+  # 4. Keycloak
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.2
     container_name: medlink-keycloak
     command: start-dev --import-realm
+    env_file:
+      - .env
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_HOSTNAME: "http://localhost:8081"
-      # Injecté dans keycloak/import/realm-medlink.json (le secret n'est pas écrit dans git)
-      KEYCLOAK_BACKEND_CLIENT_SECRET: ${KEYCLOAK_BACKEND_CLIENT_SECRET}
-      # SMTP du realm (par défaut Mailpit ; Gmail possible via votre .env)
-      SMTP_HOST: ${SMTP_HOST:-mailpit}
-      SMTP_PORT: ${SMTP_PORT:-1025}
-      SMTP_FROM: ${SMTP_FROM:-noreply@medlink.local}
-      SMTP_AUTH: ${SMTP_AUTH:-false}
-      SMTP_SSL: ${SMTP_SSL:-false}
-      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      KC_LOG_LEVEL: "INFO,org.keycloak.services.managers.AuthenticationManager:debug,org.keycloak.TokenVerifier:debug,org.keycloak.services.resources.admin:debug"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_FROM: ${SMTP_FROM}
+      SMTP_AUTH: ${SMTP_AUTH}
+      SMTP_STARTTLS: ${SMTP_STARTTLS}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      KC_LOG_LEVEL: "INFO"
     ports:
       - "8081:8080"
     volumes:
       - keycloak_data:/opt/keycloak/data
       - ./keycloak-theme/medlink:/opt/keycloak/themes/medlink
       - ./keycloak/import:/opt/keycloak/data/import:ro
-    depends_on:
-      - mailpit
     restart: unless-stopped
-
-  # 5. Mailpit : serveur SMTP de TEST (développement uniquement)
-  # Interface web : http://localhost:8025
-  # Keycloak l'atteint en interne via mailpit:1025 (port non publié sur l'hôte)
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: medlink-mailpit
-    ports:
-      - "8025:8025"
-    restart: unless-stopped  
 
 volumes:
   postgres_data:
   keycloak_data:
-
-  

@@ -1,4 +1,5 @@
 import { useAuth } from '../context/AuthContext';
+import NotificationBell from '../components/NotificationBell';
 
 export default function Navbar() {
   const { user } = useAuth();
@@ -25,6 +26,8 @@ export default function Navbar() {
 
         {/* ✅ À droite : rôle et avatar */}
         <div className="flex shrink-0 items-center gap-4">
+          {/* 🎯 US-20 : Cloche de notification visible uniquement pour les patients */}
+          {user?.role === 'patient' && <NotificationBell />}
           <span className="badge-info text-sm px-4 py-2">{roleLabel}</span>
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-primary font-semibold">
             {user?.full_name?.charAt(0) || 'U'}

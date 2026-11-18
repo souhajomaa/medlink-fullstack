@@ -32,6 +32,7 @@ import AdminRendezVous from './modules/admin/pages/AdminRendezVous';
 import AdminStats from './modules/admin/pages/AdminStats';
 import AdminAppels from './modules/admin/pages/AdminAppels';
 
+
 // Protection : utilisateur connecté
 function PrivateRoute({ children }) {
     const { user, loading, authError, logout } = useAuth();
