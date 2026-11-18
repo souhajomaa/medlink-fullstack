@@ -41,15 +41,23 @@ export default function PublierResultats() {
   };
 
   const loadResults = async () => {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
+
+    const response = await api.practitioner.results.list();
+
+    if (response.success) {
+      setResults(response.data || []);
+    } else {
       setResults([]);
-    } catch (err) {
-      console.error("Erreur chargement résultats:", err);
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (err) {
+    console.error("Erreur chargement résultats:", err);
+    setResults([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleDrag = (e) => {
     e.preventDefault();

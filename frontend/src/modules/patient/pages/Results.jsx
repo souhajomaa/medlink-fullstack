@@ -24,9 +24,15 @@ export default function Results() {
         <p className="mt-1 text-sm text-on-variant">Consultez l'historique de vos examens biologiques.</p>
       </div>
 
-      {results.length === 0 ? (
-        <div className="card py-16 text-center text-on-variant">Aucun résultat disponible.</div>
-      ) : (
+      {loading ? (
+  <div className="text-center py-8 text-on-variant">
+    Chargement des résultats...
+  </div>
+) : results.length === 0 ? (
+  <div className="card py-16 text-center text-on-variant">
+    Aucun résultat disponible.
+  </div>
+) : (
         <div className="card overflow-hidden p-0">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-outline-variant/40 bg-surface-low">

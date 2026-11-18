@@ -2,11 +2,53 @@ import * as service from './practitioner.service.js';
 
 export async function getAppointments(req, res) {
   try {
-    const appointments = await service.listAppointments(req.user.id);
-    res.json({ success: true, data: appointments });
+    const rawCliniqueId = req.query.clinique_id;
+    let cliniqueId = null;
+
+    if (rawCliniqueId !== undefined) {
+      cliniqueId = Number(rawCliniqueId);
+
+      if (!Number.isInteger(cliniqueId) || cliniqueId <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Identifiant de clinique invalide'
+        });
+      }
+    }
+
+    const appointments = await service.listAppointments(
+      req.user.id,
+      cliniqueId
+    );
+
+    res.json({
+      success: true,
+      data: appointments
+    });
   } catch (err) {
     console.error('[practitioner] getAppointments:', err);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur'
+    });
+  }
+}
+
+
+export async function getMyClinics(req, res) {
+  try {
+    const clinics = await service.listMyClinics(req.user.id);
+
+    res.json({
+      success: true,
+      data: clinics
+    });
+  } catch (err) {
+    console.error('[practitioner] getMyClinics:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur'
+    });
   }
 }
 
@@ -90,11 +132,41 @@ export async function postMedicalRecord(req, res) {
 
 export async function postLabResult(req, res) {
   try {
-    const lab = await service.createLabResult(req.user.id, req.body);
-    res.status(201).json({ success: true, data: lab });
+    const practitionerId = Number(req.user?.id);
+
+    if (!Number.isInteger(practitionerId) || practitionerId <= 0) {
+      console.error('[practitioner] ID praticien invalide:', req.user);
+
+      return res.status(401).json({
+        success: false,
+        error: 'Identifiant du praticien invalide'
+      });
+    }
+
+    console.log('[LAB RESULT] Practitioner ID:', practitionerId);
+
+    const lab = await service.createLabResult(
+      practitionerId,
+      req.body
+    );
+
+    console.log('[LAB RESULT] Created:', {
+      id: lab.id,
+      practitioner_id: lab.practitioner_id
+    });
+
+    res.status(201).json({
+      success: true,
+      data: lab
+    });
+
   } catch (err) {
     console.error('[practitioner] postLabResult:', err);
-    res.status(err.status || 500).json({ success: false, error: err.message || 'Erreur serveur' });
+
+    res.status(err.status || 500).json({
+      success: false,
+      error: err.message || 'Erreur serveur'
+    });
   }
 }
 
@@ -120,5 +192,34 @@ export async function listRecords(req, res) {
   } catch (err) {
     console.error('[practitioner] listRecords:', err);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+}
+
+export async function putDisponibilite(req, res) {
+  try {
+    const updated = await service.updateDisponibilite(req.user.id, req.params.id, req.body);
+    res.json({ success: true, data: updated, message: 'Créneau modifié avec succès' });
+  } catch (err) {
+    console.error('[practitioner] putDisponibilite:', err);
+    res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+}
+
+
+export async function getRecentLabResults(req, res) {
+  try {
+    const results = await service.getRecentLabResults(req.user.id);
+
+    res.status(200).json({
+      success: true,
+      data: results
+    });
+  } catch (err) {
+    console.error('[practitioner] getRecentLabResults:', err);
+
+    res.status(err.status || 500).json({
+      success: false,
+      error: err.message || 'Erreur serveur'
+    });
   }
 }

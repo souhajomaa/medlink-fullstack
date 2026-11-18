@@ -10,6 +10,11 @@ import {
     KeycloakError,
 } from '../../shared/utils/keycloakAdmin.js';
 
+import {
+    encrypt,
+    decrypt
+} from '../../shared/utils/encryption.js';
+
 export async function loginUser(email, password) {
     // 1. Chercher l'utilisateur par email
     const result = await pool.query(
@@ -59,8 +64,19 @@ export async function getUserById(userId) {
         'SELECT id, email, full_name, role, specialty, phone FROM users WHERE id = $1',
         [userId]
     );
-    if (result.rows.length === 0) throw new Error('Utilisateur non trouvé');
-    return result.rows[0];
+
+    if (result.rows.length === 0) {
+        throw new Error('Utilisateur non trouvé');
+    }
+
+    const user = result.rows[0];
+
+    return {
+    ...user,
+    phone: user.phone && user.phone.includes(':')
+        ? decrypt(user.phone)
+        : user.phone
+};
 }
 
 // ---------------------------------------------------------------------------
@@ -132,20 +148,22 @@ export async function registerPatient(values, ip) {
         const passwordHash = await bcrypt.hash(password, 12);
 
         // 5. Créer le profil dans PostgreSQL
-        const result = await pool.query(
-            `INSERT INTO users
-                (email, password_hash, full_name, role, phone, keycloak_id)
-             VALUES ($1, $2, $3, $4, $5, $6)
-             RETURNING id`,
-            [
-                normalizedEmail,
-                passwordHash,
-                fullName,
-                'patient',
-                phone || null,
-                keycloakId
-            ]
-        );
+        const encryptedPhone = encrypt(phone);
+
+const result = await pool.query(
+    `INSERT INTO users
+        (email, password_hash, full_name, role, phone, keycloak_id)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id`,
+    [
+        normalizedEmail,
+        passwordHash,
+        fullName,
+        'patient',
+        encryptedPhone,
+        keycloakId
+    ]
+);
 
         newUserId = result.rows[0].id;
 
@@ -294,28 +312,30 @@ export async function registerPractitioner(values, ip) {
         await client.query('BEGIN');
         transactionStarted = true;
 
-        const inserted = await client.query(
-            `INSERT INTO users (
-                email,
-                password_hash,
-                full_name,
-                role,
-                phone,
-                specialty,
-                order_number,
-                keycloak_id
-            )
-            VALUES ($1, NULL, $2, 'practitioner', $3, $4, $5, $6)
-            RETURNING id`,
-            [
-                normalizedEmail,
-                fullName,
-                phone || null,
-                specialty,
-                orderNumber,
-                keycloakId
-            ]
-        );
+        const encryptedPhone = encrypt(phone);
+
+const inserted = await client.query(
+    `INSERT INTO users (
+        email,
+        password_hash,
+        full_name,
+        role,
+        phone,
+        specialty,
+        order_number,
+        keycloak_id
+    )
+    VALUES ($1, NULL, $2, 'practitioner', $3, $4, $5, $6)
+    RETURNING id`,
+    [
+        normalizedEmail,
+        fullName,
+        encryptedPhone,
+        specialty,
+        orderNumber,
+        keycloakId
+    ]
+);
 
         newUserId = inserted.rows[0].id;
 

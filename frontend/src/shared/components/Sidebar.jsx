@@ -14,7 +14,7 @@ const patientNav = [
 // Navigation Praticien
 const practitionerNav = [
   { to: '/app', label: 'Tableau de bord', icon: '📊', description: "Vue d'ensemble" },
-  { to: '/app/appointments', label: 'Agenda multi-sites', icon: '📅', description: 'Gérer les RDV' },
+  { to: '/app/agenda', label: 'Agenda multi-sites', icon: '📅', description: 'Gérer les RDV' },
   { to: '/app/disponibilites', label: 'Mes disponibilités', icon: '⏰', description: 'Créneaux & absences' },
   { to: '/app/patients', label: 'Mes patients', icon: '🔍', description: 'Rechercher & consulter' },
   { to: '/app/records', label: 'Dossiers médicaux', icon: '📁', description: 'Historique complet' },
