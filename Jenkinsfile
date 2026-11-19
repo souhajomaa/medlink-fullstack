@@ -14,7 +14,7 @@ pipeline {
     stage('SonarQube (US-59, US-61)') {
       steps {
         withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    sh 'SONAR_SCANNER_OPTS="-Xmx512m" npx --yes @sonar/scan -Dsonar.host.url=http://sonarqube:9000 -Dsonar.token=$SONAR_TOKEN'
+                    sh 'npx --yes @sonar/scan -Dsonar.host.url=http://sonarqube:9000 -Dsonar.token=$SONAR_TOKEN'
         }
       }
     }

@@ -15,6 +15,7 @@ import Dashboard from './shared/pages/Dashboard';
 import Appointments from './modules/patient/pages/Appointments';
 import BookAppointment from './modules/patient/pages/BookAppointment';
 import MedicalRecords from './modules/patient/pages/MedicalRecords';
+import Records from './modules/patient/pages/Records';
 import Results from './modules/patient/pages/Results';
 
 // Pages praticien (US-18 à US-26)
@@ -25,7 +26,7 @@ import DossiersMedicaux from './modules/practitioner/pages/DossiersMedicaux';
 import ComptesRendus from './modules/practitioner/pages/ComptesRendus';
 import PublierResultats from './modules/practitioner/pages/PublierResultats';
 
-// 3. Back-office administrateur (NOUVEAU)
+// Back-office administrateur
 import AdminDashboard from './modules/admin/pages/Admin';
 import AdminUsers from './modules/admin/pages/AdminUsers';
 import AdminCliniques from './modules/admin/pages/AdminCliniques';
@@ -61,13 +62,19 @@ function PrivateRoute({ children }) {
     return children;
 }
 
-// Réserve une route à certains rôles (NOUVEAU)
+// Réserve une route à certains rôles : tout autre rôle est renvoyé vers le tableau de bord
 function RoleRoute({ roles, children }) {
     const { user } = useAuth();
     return roles.includes(user?.role) ? children : <Navigate to="/app" replace />;
 }
 
-// Chaque rôle a son propre tableau de bord sur /app (NOUVEAU)
+// /app/records : le patient voit son dossier, le praticien voit les dossiers de ses patients
+function RecordsRouter() {
+    const { user } = useAuth();
+    return user?.role === 'practitioner' ? <Records /> : <MedicalRecords />;
+}
+
+// Chaque rôle a son propre tableau de bord sur /app
 function DashboardRouter() {
     const { user } = useAuth();
     return user?.role === 'admin' ? <AdminDashboard /> : <Dashboard />;
@@ -87,30 +94,37 @@ export default function App() {
 
             {/* Routes protégées */}
             <Route path="/app" element={<PrivateRoute><Layout /></PrivateRoute>}>
-                {/* On utilise DashboardRouter au lieu de Dashboard */}
                 <Route index element={<DashboardRouter />} />
 
-                <Route path="appointments" element={<Appointments />} />
-                <Route path="book" element={<BookAppointment />} />
-                <Route path="records" element={<MedicalRecords />} />
-                <Route path="results" element={<Results />} />
+                {/* Commun à tous les rôles connectés */}
                 <Route path="profile" element={<Profile />} />
-                <Route path="records" element={<Records />} />
-                <Route path="results" element={<Results />} />
-                <Route path="disponibilites" element={<Disponibilites />} />  
-                <Route path="agenda" element={<Agenda />} />                    
-                <Route path="patients" element={<Patients />} />                
-                <Route path="dossiers/:id" element={<DossiersMedicaux />} />        
-                <Route path="comptes-rendus" element={<ComptesRendus />} />      
-                <Route path="publier-resultats" element={<PublierResultats />} /> 
 
-                {/* Routes Admin (NOUVEAU) */}
+                {/* Patient + praticien (la page s'adapte au rôle) */}
+                <Route path="appointments" element={<RoleRoute roles={['patient', 'practitioner']}><Appointments /></RoleRoute>} />
+                <Route path="records" element={<RoleRoute roles={['patient', 'practitioner']}><RecordsRouter /></RoleRoute>} />
+
+                {/* Patient uniquement */}
+                <Route path="book" element={<RoleRoute roles={['patient']}><BookAppointment /></RoleRoute>} />
+                <Route path="results" element={<RoleRoute roles={['patient']}><Results /></RoleRoute>} />
+
+                {/* Praticien uniquement (US-18 à US-26) */}
+                <Route path="disponibilites" element={<RoleRoute roles={['practitioner']}><Disponibilites /></RoleRoute>} />
+                <Route path="agenda" element={<RoleRoute roles={['practitioner']}><Agenda /></RoleRoute>} />
+                <Route path="patients" element={<RoleRoute roles={['practitioner']}><Patients /></RoleRoute>} />
+                <Route path="dossiers/:id" element={<RoleRoute roles={['practitioner']}><DossiersMedicaux /></RoleRoute>} />
+                <Route path="comptes-rendus" element={<RoleRoute roles={['practitioner']}><ComptesRendus /></RoleRoute>} />
+                <Route path="publier-resultats" element={<RoleRoute roles={['practitioner']}><PublierResultats /></RoleRoute>} />
+
+                {/* Admin uniquement */}
                 <Route path="admin/users" element={<RoleRoute roles={['admin']}><AdminUsers /></RoleRoute>} />
                 <Route path="admin/cliniques" element={<RoleRoute roles={['admin']}><AdminCliniques /></RoleRoute>} />
                 <Route path="admin/audit" element={<RoleRoute roles={['admin']}><AdminAudit /></RoleRoute>} />
                 <Route path="admin/rendez-vous" element={<RoleRoute roles={['admin']}><AdminRendezVous /></RoleRoute>} />
                 <Route path="admin/statistiques" element={<RoleRoute roles={['admin']}><AdminStats /></RoleRoute>} />
                 <Route path="admin/appels" element={<RoleRoute roles={['admin']}><AdminAppels /></RoleRoute>} />
+
+                {/* URL /app/xxx inconnue : retour au tableau de bord */}
+                <Route path="*" element={<Navigate to="/app" replace />} />
             </Route>
 
             {/* Pages inexistantes */}
