@@ -1,11 +1,22 @@
 import pool from '../../shared/utils/db.js';
 import * as kc from './keycloak.admin.js';
 import { HttpError } from './http-error.js';
+import { encrypt, decrypt } from '../../shared/utils/encryption.js';
+
 
 export const ROLES = kc.APP_ROLES; // ['patient', 'practitioner', 'admin'] (ordre = priorité croissante)
 const PASSWORD_MIN = 12;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USER_COLUMNS = 'id, email, full_name, role, specialty, phone, keycloak_id, created_at';
+
+const decryptUserPhone = (user) => {
+    if (!user) return user;
+
+    return {
+        ...user,
+        phone: user.phone ? decrypt(user.phone) : null,
+    };
+};
 
 const bad = (msg) => new HttpError(400, msg);
 const orNull = (v) => {
@@ -93,10 +104,10 @@ export async function listUsers({ role, q }) {
     return {
         keycloak_ok: !!enabledById,
         users: rows.map((u) => ({
-            ...u,
-            linked: !!u.keycloak_id,
-            enabled: enabledById && u.keycloak_id ? (enabledById.get(u.keycloak_id) ?? null) : null,
-        })),
+    ...decryptUserPhone(u),
+    linked: !!u.keycloak_id,
+    enabled: enabledById && u.keycloak_id ? (enabledById.get(u.keycloak_id) ?? null) : null,
+})),
     };
 }
 
@@ -126,9 +137,9 @@ export async function createUser(input) {
         const { rows } = await pool.query(
             `INSERT INTO users (email, full_name, role, specialty, phone, keycloak_id)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${USER_COLUMNS}`,
-            [email, full_name, role, specialty, orNull(input.phone), kcId]
+            [email, full_name, role, specialty, encrypt(orNull(input.phone)), kcId]
         );
-        return { ...rows[0], linked: true, enabled: true };
+        return { ...decryptUserPhone(rows[0]), linked: true, enabled: true };
     } catch (err) {
         // Compensation : pas de compte Keycloak orphelin si le profil local n'a pas pu être créé
         await kc.deleteUser(kcId).catch((e) => console.error('Rollback Keycloak échoué', kcId, e.message));
@@ -137,9 +148,14 @@ export async function createUser(input) {
 }
 
 async function getLocalUser(id) {
-    const user = (await pool.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [id])).rows[0];
+    const user = (await pool.query(
+        `SELECT ${USER_COLUMNS} FROM users WHERE id = $1`,
+        [id]
+    )).rows[0];
+
     if (!user) throw new HttpError(404, 'Utilisateur introuvable');
-    return user;
+
+    return decryptUserPhone(user);
 }
 const needLinked = (user) => {
     if (!user.keycloak_id)
@@ -181,7 +197,9 @@ export async function updateUser(id, actorId, input) {
             push('full_name', name);
         }
     }
-    if (input.phone !== undefined) push('phone', orNull(input.phone));
+    if (input.phone !== undefined) {
+    push('phone', encrypt(orNull(input.phone)));
+}
     if (newRole !== user.role || input.specialty !== undefined) {
         push('specialty', newRole === 'practitioner' ? orNull(input.specialty ?? user.specialty) : null);
     }
@@ -192,7 +210,7 @@ export async function updateUser(id, actorId, input) {
         `UPDATE users SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING ${USER_COLUMNS}`,
         values
     );
-    return rows[0];
+    return decryptUserPhone(rows[0]);
 }
 
 export async function setUserStatus(id, actorId, enabled) {

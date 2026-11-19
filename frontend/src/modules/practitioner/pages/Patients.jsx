@@ -30,6 +30,9 @@ export default function Patients() {
       setError(null);
       const response = await api.practitioner.patients.search(search);
       
+      console.log('PATIENTS API RESPONSE:', response);
+      console.log('PATIENTS DATA:', response.data);
+
       if (response.success) {
         setPatients(response.data || []);
       } else {

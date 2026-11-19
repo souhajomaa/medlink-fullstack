@@ -1,49 +1,99 @@
+
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 
-dotenv.config();
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-// La clé doit faire exactement 32 caractères (256 bits) pour AES-256
-// En production, cette clé viendra du Vault (US-45)
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'MedLink2026SecretKeyForAES256!!!';
-const IV_LENGTH = 16; // Pour l'algorithme AES, le vecteur d'initialisation doit faire 16 octets
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+dotenv.config({
+    path: path.resolve(__dirname, '../../../../.env')
+});
+
+// Clé AES-256 : 32 octets exactement
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+
+if (!ENCRYPTION_KEY || !/^[0-9a-fA-F]{64}$/.test(ENCRYPTION_KEY)) {
+    throw new Error(
+        'ENCRYPTION_KEY doit contenir exactement 64 caractères hexadécimaux.'
+    );
+}
+
+const KEY = Buffer.from(ENCRYPTION_KEY, 'hex');
+const IV_LENGTH = 12;
+const LEGACY_IV_LENGTH = 16;
+const AUTH_TAG_LENGTH = 16;
 
 /**
- * Chiffre une donnée sensible (US-43)
- * @param {string} text - La donnée en clair (ex: numéro de téléphone)
- * @returns {string} - La donnée chiffrée en base64 (iv:chiffre:tag)
+ * Chiffrement AES-256-GCM
  */
 export function encrypt(text) {
-    if (!text) return null;
-    const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY), iv);
+    if (text === null || text === undefined || text === '') {
+        return null;
+    }
 
-    let encrypted = cipher.update(text, 'utf8', 'hex');
+    const iv = crypto.randomBytes(IV_LENGTH);
+
+    const cipher = crypto.createCipheriv('aes-256-gcm', KEY, iv);
+
+    let encrypted = cipher.update(String(text), 'utf8', 'hex');
     encrypted += cipher.final('hex');
 
-    // On retourne l'IV, le texte chiffré et le tag d'authentification, séparés par ':'
-    return iv.toString('hex') + ':' + encrypted + ':' + cipher.getAuthTag().toString('hex');
+    return [
+        iv.toString('hex'),
+        encrypted,
+        cipher.getAuthTag().toString('hex')
+    ].join(':');
 }
 
 /**
- * Déchiffre une donnée
- * @param {string} encryptedText - La donnée chiffrée (iv:chiffre:tag)
- * @returns {string} - La donnée en clair
+ * Déchiffrement AES-256-GCM
+ * Compatible avec les anciens IV de 16 octets.
  */
 export function decrypt(encryptedText) {
     if (!encryptedText) return null;
-    const textParts = encryptedText.split(':');
-    if (textParts.length !== 3) return null; // Format invalide
 
-    const iv = Buffer.from(textParts.shift(), 'hex');
-    const encrypted = textParts.shift();
-    const authTag = Buffer.from(textParts.shift(), 'hex');
+    try {
+        const parts = encryptedText.split(':');
 
-    const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY), iv);
-    decipher.setAuthTag(authTag);
+        if (parts.length !== 3) return null;
 
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
+        const [ivHex, encrypted, authTagHex] = parts;
 
-    return decrypted;
+        if (
+            !/^(?:[0-9a-fA-F]{2})+$/.test(ivHex) ||
+            !/^(?:[0-9a-fA-F]{2})*$/.test(encrypted) ||
+            !/^(?:[0-9a-fA-F]{2})+$/.test(authTagHex)
+        ) {
+            return null;
+        }
+
+        const iv = Buffer.from(ivHex, 'hex');
+        const authTag = Buffer.from(authTagHex, 'hex');
+
+        if (
+            ![IV_LENGTH, LEGACY_IV_LENGTH].includes(iv.length) ||
+            authTag.length !== AUTH_TAG_LENGTH
+        ) {
+            return null;
+        }
+
+        const decipher = crypto.createDecipheriv(
+            'aes-256-gcm',
+            KEY,
+            iv
+        );
+
+        decipher.setAuthTag(authTag);
+
+        let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+
+        return decrypted;
+
+    } catch (error) {
+        console.error('Échec du déchiffrement AES-GCM.');
+        return null;
+    }
 }

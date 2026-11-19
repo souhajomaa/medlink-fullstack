@@ -157,6 +157,7 @@ const practitioner = {
     list: () => request('/practitioner/disponibilites'),
     create: (data) => request('/practitioner/disponibilites', withBody('POST', data)),
     remove: (id) => request(`/practitioner/disponibilites/${id}`, { method: 'DELETE' }),
+    update: (id, data) => request(`/practitioner/disponibilites/${id}`, withBody("PUT", data)),
   },
   patients: {
     search: (q = '') =>
@@ -173,8 +174,9 @@ const practitioner = {
     create: (data) => request('/practitioner/records', withBody('POST', data)),
   },
   results: {
-    create: (data) => request('/practitioner/results', withBody('POST', data)),
-  },
+  list: () => request('/practitioner/results/recent'),
+  create: (data) => request('/practitioner/results', withBody('POST', data)),
+},
 };
 
 // --- Module ADMIN ---
