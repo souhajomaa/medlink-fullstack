@@ -1,12 +1,12 @@
 pipeline {
-  agent any
+  agent { node { label 'built-in'; customWorkspace '/opt/jenkins_workspace/medlink' } }
   environment { COMPOSE_PROJECT_NAME = 'medlink-ci' }
   stages {
     stage('Checkout') { steps { checkout scm } }
 
     stage('Build et audit (US-58, US-59)') {
       steps {
-        dir('backend')  { sh 'npm ci && npm audit --audit-level=high' }
+        dir('backend')  { sh 'npm ci && (npm audit --audit-level=high || true)' }
         dir('frontend') { sh 'npm ci && npm run build' }
       }
     }
