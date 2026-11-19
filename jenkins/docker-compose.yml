@@ -2,14 +2,18 @@ services:
   jenkins:
     build: .
     container_name: medlink-jenkins
-    user: root            # lab : accès au socket Docker
+    user: root
+    restart: unless-stopped
+    security_opt: ["label=disable"]
     ports: ["8080:8080"]
     volumes:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
+      - /home/souhajo/jenkins_workspace:/home/souhajo/jenkins_workspace
   sonarqube:
     image: sonarqube:community
     container_name: medlink-sonarqube
+    restart: unless-stopped
     ports: ["9000:9000"]
     volumes:
       - sonar_data:/opt/sonarqube/data
