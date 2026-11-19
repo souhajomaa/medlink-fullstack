@@ -1,5 +1,5 @@
 pipeline {
-  agent { node { label 'built-in'; customWorkspace '/opt/jenkins_workspace/medlink' } }
+  agent { node { label 'built-in'; customWorkspace '/home/souhajo/jenkins_workspace/medlink' } }
   environment { COMPOSE_PROJECT_NAME = 'medlink-ci' }
   stages {
     stage('Checkout') { steps { checkout scm } }

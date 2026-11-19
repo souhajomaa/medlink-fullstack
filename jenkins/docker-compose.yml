@@ -9,7 +9,7 @@ services:
     volumes:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
-      - /opt/jenkins_workspace:/opt/jenkins_workspace
+      - /home/souhajo/jenkins_workspace:/home/souhajo/jenkins_workspace
   sonarqube:
     image: sonarqube:community
     container_name: medlink-sonarqube
