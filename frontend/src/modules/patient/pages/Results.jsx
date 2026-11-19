@@ -17,6 +17,33 @@ export default function Results() {
   if (loading) return <div className="py-10 text-center">Chargement...</div>;
   if (error) return <div className="rounded-lg bg-error-container p-4 text-error">{error}</div>;
 
+    const handleDownload = async (id, fileName) => {
+    try {
+      const token = localStorage.getItem('medlink_token');
+      const response = await fetch(`/api/patient/records/results/${id}/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) throw new Error("Erreur de téléchargement");
+
+      // Créer un lien temporaire pour déclencher le téléchargement
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fileName || 'resultat'}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -35,6 +62,7 @@ export default function Results() {
                 <th className="px-5 py-3 font-semibold text-on-variant">Examen</th>
                 <th className="px-5 py-3 font-semibold text-on-variant">Résultat</th>
                 <th className="px-5 py-3 font-semibold text-on-variant">Statut</th>
+                <th className="px-5 py-3 font-semibold text-on-variant">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/30">
@@ -52,6 +80,13 @@ export default function Results() {
                     <span className={r.status === 'normal' ? 'badge-success' : 'badge-warning'}>
                       {r.status}
                     </span>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <button
+                    onClick={() => handleDownload(r.id, r.test_name)}
+                    className="rounded-md bg-surface-highest px-2.5 py-1 text-xs font-semibold text-secondary hover:opacity-80">
+                      📥 Télécharger
+                    </button>
                   </td>
                 </tr>
               ))}

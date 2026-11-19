@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './shared/context/AuthContext';
+import { Toaster } from 'react-hot-toast';
 import Layout from './shared/components/Layout';
+import Profile from './modules/patient/pages/Profile';
 
 // Pages publiques
 import Landing from './shared/pages/Landing';
@@ -12,7 +14,7 @@ import SignupPractitioner from './modules/auth/pages/SignupPractitioner';
 import Dashboard from './shared/pages/Dashboard';
 import Appointments from './modules/patient/pages/Appointments';
 import BookAppointment from './modules/patient/pages/BookAppointment';
-import Records from './modules/patient/pages/Records';
+import MedicalRecords from './modules/patient/pages/MedicalRecords';
 import Results from './modules/patient/pages/Results';
 
 // Pages praticien (US-18 à US-26)
@@ -73,6 +75,9 @@ function DashboardRouter() {
 
 export default function App() {
     return (
+    <>
+        <Toaster position="top-right" />
+
         <Routes>
             {/* Routes publiques */}
             <Route path="/" element={<Landing />} />
@@ -86,6 +91,10 @@ export default function App() {
                 <Route index element={<DashboardRouter />} />
 
                 <Route path="appointments" element={<Appointments />} />
+                <Route path="book" element={<BookAppointment />} />
+                <Route path="records" element={<MedicalRecords />} />
+                <Route path="results" element={<Results />} />
+                <Route path="profile" element={<Profile />} />
                 <Route path="records" element={<Records />} />
                 <Route path="results" element={<Results />} />
                 <Route path="disponibilites" element={<Disponibilites />} />  
@@ -107,5 +116,6 @@ export default function App() {
             {/* Pages inexistantes */}
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+    </>
     );
 }

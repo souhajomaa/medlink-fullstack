@@ -1,180 +1,161 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { api } from '../../../shared/api/axiosConfig';
 
 export default function BookAppointment() {
-  const navigate = useNavigate();
-  const [doctors, setDoctors] = useState([]);
-  const [form, setForm] = useState({
-    doctor_id: '',
-    appointment_date: '',
-    appointment_time: '',
-    reason: '',
-    type: 'consultation',
-  });
+  const [practitioners, setPractitioners] = useState([]);
+  const [filtered, setFiltered] = useState([]);
+  const [search, setSearch] = useState('');
+  const [specialty, setSpecialty] = useState('');
+  
+  // Formulaire
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [reason, setReason] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
 
+  // Charger les médecins
   useEffect(() => {
-    api.patient.practitioners().then(setDoctors).catch((err) => setError(err.message));
+    api.patient.practitioners().then(setPractitioners).catch(console.error);
   }, []);
 
-  const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
+  // Appliquer les filtres
+  useEffect(() => {
+    let result = practitioners;
+    if (search) {
+      result = result.filter(p => p.full_name.toLowerCase().includes(search.toLowerCase()));
+    }
+    if (specialty) {
+      result = result.filter(p => p.specialty === specialty);
+    }
+    setFiltered(result);
+  }, [search, specialty, practitioners]);
+
+  // Récupérer les spécialités uniques pour le menu déroulant
+  const specialties = [...new Set(practitioners.map(p => p.specialty).filter(Boolean))];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    if (!selectedDoctor) return setMessage('Veuillez choisir un praticien.');
+    
     setLoading(true);
+    setMessage('');
     try {
       await api.patient.appointments.create({
-        ...form,
-        doctor_id: parseInt(form.doctor_id, 10),
+        doctor_id: selectedDoctor,
+        appointment_date: date,
+        appointment_time: time,
+        reason,
+        type: 'consultation'
       });
+      setMessage('✅ Rendez-vous demandé avec succès ! (En attente de confirmation)');
+      setSelectedDoctor(null);
+      setDate('');
+      setTime('');
+      setReason('');
       setSuccess(true);
       setTimeout(() => navigate('/app/appointments'), 1500);
     } catch (err) {
-      setError(err.message);
+      setMessage('❌ ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Min date = tomorrow
-  const minDate = new Date();
-  minDate.setDate(minDate.getDate() + 1);
-  const minDateStr = minDate.toISOString().split('T')[0];
-
-  if (success) {
-    return (
-      <div className="card mx-auto max-w-lg py-16 text-center">
-        <div className="mb-4 text-4xl">✅</div>
-        <h3 className="font-display text-xl font-semibold text-primary">
-          Rendez-vous demandé !
-        </h3>
-        <p className="mt-2 text-sm text-on-variant">
-          Vous allez être redirigé vers vos rendez-vous…
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <div className="space-y-6">
       <div>
-        <h2 className="font-display text-2xl font-bold text-primary">
-          Prendre un rendez-vous
-        </h2>
-        <p className="mt-1 text-sm text-on-variant">
-          Choisissez un praticien et un créneau
-        </p>
+        <h2 className="font-display text-2xl font-bold text-primary">Prendre un rendez-vous</h2>
+        <p className="mt-1 text-sm text-on-variant">Trouvez un praticien et réservez votre créneau.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="card space-y-5">
-        {error && (
-          <div className="rounded-lg bg-error-container px-4 py-3 text-sm text-error">
-            {error}
-          </div>
-        )}
-
-        <div>
-          <label className="label" htmlFor="doctor_id">
-            Médecin
-          </label>
-          <select
-            id="doctor_id"
-            name="doctor_id"
-            className="input"
-            value={form.doctor_id}
-            onChange={handleChange}
-            required
-          >
-            <option value="">Sélectionner un praticien</option>
-            {doctors.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.full_name} — {d.specialty}
-              </option>
-            ))}
-          </select>
+      {message && (
+        <div className={`rounded-lg p-4 ${message.includes('✅') ? 'bg-success-container text-success' : 'bg-error-container text-error'}`}>
+          {message}
         </div>
+      )}
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="label" htmlFor="appointment_date">
-              Date
-            </label>
-            <input
-              id="appointment_date"
-              name="appointment_date"
-              type="date"
-              className="input"
-              min={minDateStr}
-              value={form.appointment_date}
-              onChange={handleChange}
-              required
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* COLONNE GAUCHE : Recherche et liste des médecins */}
+        <div className="md:col-span-2 space-y-4">
+          <div className="card p-4 flex gap-3">
+            <input 
+              type="text" 
+              placeholder="Rechercher un nom..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 rounded-md border border-outline-variant p-2 text-sm"
             />
-          </div>
-          <div>
-            <label className="label" htmlFor="appointment_time">
-              Heure
-            </label>
-            <select
-              id="appointment_time"
-              name="appointment_time"
-              className="input"
-              value={form.appointment_time}
-              onChange={handleChange}
-              required
+            <select 
+              value={specialty} 
+              onChange={(e) => setSpecialty(e.target.value)}
+              className="rounded-md border border-outline-variant p-2 text-sm bg-surface"
             >
-              <option value="">Choisir</option>
-              {['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-                '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00'].map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
+              <option value="">Toutes les spécialités</option>
+              {specialties.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
+
+          <div className="space-y-3">
+            {filtered.length === 0 ? (
+              <div className="card py-10 text-center text-on-variant">Aucun praticien ne correspond à votre recherche.</div>
+            ) : (
+              filtered.map((p) => (
+                <div 
+                  key={p.id} 
+                  onClick={() => setSelectedDoctor(p.id)}
+                  className={`card p-4 cursor-pointer transition-all border-2 ${selectedDoctor === p.id ? 'border-primary bg-primary/5' : 'border-transparent hover:border-outline-variant'}`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-bold text-primary">{p.full_name}</h3>
+                      <p className="text-sm text-on-variant">{p.specialty}</p>
+                      {p.cliniques && p.cliniques.length > 0 && (
+                        <p className="text-xs text-on-variant mt-1">🏥 {p.cliniques.join(', ')}</p>
+                      )}
+                    </div>
+                    {selectedDoctor === p.id && <span className="text-primary text-xl">✓</span>}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
-        <div>
-          <label className="label" htmlFor="type">
-            Type de consultation
-          </label>
-          <select
-            id="type"
-            name="type"
-            className="input"
-            value={form.type}
-            onChange={handleChange}
-          >
-            <option value="consultation">Consultation</option>
-            <option value="suivi">Suivi</option>
-            <option value="urgence">Urgence</option>
-            <option value="teleconsultation">Téléconsultation</option>
-          </select>
-        </div>
+        {/* COLONNE DROITE : Formulaire de réservation */}
+        <div className="md:col-span-1">
+          <form onSubmit={handleSubmit} className="card p-6 space-y-4 sticky top-6">
+            <h3 className="font-bold text-lg border-b pb-2 mb-2">Détails du RDV</h3>
+            
+            <div>
+              <label className="block text-xs font-semibold text-on-variant mb-1">Praticien sélectionné</label>
+              <div className="text-sm font-medium p-2 bg-surface-low rounded border border-outline-variant/30">
+                {selectedDoctor ? filtered.find(p => p.id === selectedDoctor)?.full_name : 'Aucun sélectionné'}
+              </div>
+            </div>
 
-        <div>
-          <label className="label" htmlFor="reason">
-            Motif (optionnel)
-          </label>
-          <textarea
-            id="reason"
-            name="reason"
-            className="input min-h-[80px] resize-y"
-            value={form.reason}
-            onChange={handleChange}
-            placeholder="Décrivez brièvement le motif de votre consultation…"
-          />
-        </div>
+            <div>
+              <label className="block text-xs font-semibold text-on-variant mb-1">Date</label>
+              <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-md border border-outline-variant p-2 text-sm" />
+            </div>
 
-        <button type="submit" className="btn-primary w-full" disabled={loading}>
-          {loading ? 'Envoi…' : 'Demander le rendez-vous'}
-        </button>
-      </form>
+            <div>
+              <label className="block text-xs font-semibold text-on-variant mb-1">Heure</label>
+              <input type="time" required value={time} onChange={(e) => setTime(e.target.value)} className="w-full rounded-md border border-outline-variant p-2 text-sm" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-on-variant mb-1">Motif (optionnel)</label>
+              <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows="2" className="w-full rounded-md border border-outline-variant p-2 text-sm"></textarea>
+            </div>
+
+            <button type="submit" disabled={loading || !selectedDoctor} className="w-full rounded-md bg-primary py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
+              {loading ? 'Envoi...' : 'Confirmer le rendez-vous'}
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

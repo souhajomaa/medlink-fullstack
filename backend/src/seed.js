@@ -3,7 +3,7 @@ import pool from './shared/utils/db.js';
 import { encrypt } from './shared/utils/encryption.js';
 
 async function seed() {
-  console.log('🌱 Début du seeding de la base MedLink...');
+  console.log("🌱 Début du seeding de la base MedLink...");
 
   try {
     await pool.query(`
@@ -26,6 +26,8 @@ async function seed() {
         full_name VARCHAR(255) NOT NULL,
         role VARCHAR(20) NOT NULL CHECK (role IN ('patient', 'practitioner', 'admin')),
         specialty VARCHAR(100),
+        phone VARCHAR(30),
+        consent_given BOOLEAN DEFAULT FALSE,
         phone TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
@@ -128,13 +130,12 @@ async function seed() {
       ADD COLUMN IF NOT EXISTS practitioner_id INTEGER REFERENCES users(id) ON DELETE SET NULL
     `);
 
-      await pool.query(`
+    await pool.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS keycloak_id UUID UNIQUE;
       ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
     `);
 
-
-    const hash = await bcrypt.hash('password123', 10);
+    const hash = await bcrypt.hash("password123", 10);
 
     // 2. Nettoyage des anciennes données
     await pool.query(`
@@ -242,6 +243,10 @@ async function seed() {
 
     // 9. Journal d'audit de démo (US-35, US-47)
     await pool.query(
+      `INSERT INTO lab_results (patient_id, test_name, result_value, unit, reference_range, status, result_date) VALUES
+                                                                                                                     ($1, 'Cholestérol total', '1.95', 'g/L', '1.50 - 2.00', 'normal', CURRENT_DATE - 12),
+                                                                                                                     ($2, 'Hémoglobine', '13.2', 'g/dL', '12.0 - 16.0', 'normal', CURRENT_DATE - 15)`,
+      [patient1, patient2],
       `INSERT INTO journal_audit (utilisateur_id, action, ressource, adresse_ip) VALUES
          ($1, 'LOGIN', 'Authentification réussie', '192.168.1.10'),
          ($2, 'VIEW_RECORD', 'Dossier médical #1', '192.168.1.10')`,
@@ -250,6 +255,20 @@ async function seed() {
 
     // 10. Disponibilités de démo (US-18, US-21)
     await pool.query(
+      `INSERT INTO journal_audit (utilisateur_id, action, ressource, adresse_ip) VALUES
+                                                                                     ($1, 'LOGIN', 'Authentification réussie', '192.168.1.10'),
+                                                                                     ($2, 'VIEW_RECORD', 'Dossier médical #1', '192.168.1.10')`,
+      [patient1, practitioner1],
+    );
+
+    console.log("✅ Seed terminé avec succès !\n");
+    console.log("🔑 Comptes de démo (Mot de passe : password123) :");
+    console.log("  🔒 Admin       : admin@medlink.tn");
+    console.log("  👤 Patient     : patient@medlink.tn");
+    console.log(
+      "  👨‍⚕️ Praticien  : doctor@medlink.tn (Cardiologie - Sousse/Tunis)",
+    );
+    console.log("  👩‍⚕️ Praticien  : pediatre@medlink.tn (Pédiatrie - Sfax)\n");
       `INSERT INTO disponibilites
          (practitioner_id, clinique_id, date_debut, date_fin, heure_debut, heure_fin, type)
        VALUES
@@ -273,7 +292,7 @@ async function seed() {
 
     process.exit(0);
   } catch (err) {
-    console.error('❌ Échec du seed:', err);
+    console.error("❌ Échec du seed:", err);
     process.exit(1);
   }
 }

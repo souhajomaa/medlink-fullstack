@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../shared/context/AuthContext';
 import { api } from '../../shared/api/axiosConfig';
+import toast from 'react-hot-toast';
 
 // Carte statistique
 function StatCard({ label, value, icon, bgIcon, textIcon, subtext }) {
@@ -53,6 +54,38 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
+    useEffect(() => {
+    api.dashboard()
+        .then((responseData) => {
+          setData(responseData); // On met les données dans l'état
+          
+          // On vérifie les rappels si l'utilisateur est un patient
+          if (user?.role === 'patient' && responseData.upcoming) {
+            checkReminders(responseData.upcoming);
+          }
+        })
+        .catch((err) => setError(err.message));
+  }, [user]);
+
+    // Fonction pour vérifier les rappels
+  const checkReminders = (appointments) => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+    // On regarde s'il y a un RDV demain
+    const reminder = appointments.find(a => 
+      a.appointment_date.startsWith(tomorrowStr) && 
+      a.status !== 'cancelled'
+    );
+
+    if (reminder) {
+      toast(`🔔 Rappel : RDV avec ${reminder.doctor_name} demain à ${reminder.appointment_time.slice(0, 5)}`, {
+        duration: 6000,
+        icon: '📅',
+      });
+    }
+  };
   // 1. DÉCLARATION DES RÔLES (Doit être fait AVANT le useEffect et les returns)
   const isPatient = user?.role === 'patient';
   const isPractitioner = user?.role === 'practitioner';

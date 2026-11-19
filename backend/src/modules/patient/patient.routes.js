@@ -8,6 +8,10 @@ import {
   cancelAppointment,
   rescheduleAppointment,
   getResults,
+  updatePatientProfile,
+  getMedicalRecords,
+  downloadResult,
+  downloadMedicalRecord,
 } from "./patient.controller.js";
 
 const bookingLimiter = rateLimit({
@@ -187,5 +191,84 @@ router.patch("/appointments/:id/reschedule", rescheduleAppointment);
  *         description: Non authentifié
  */
 router.get("/records/results", getResults);
+
+/**
+ * @openapi
+ * /api/patient/profile:
+ *   put:
+ *     summary: Mettre à jour le profil patient (téléphone, consentement INPDP)
+ *     tags: [Patient - M2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               phone:
+ *                 type: string
+ *               consent_given:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Profil mis à jour
+ */
+router.put("/profile", updatePatientProfile);
+
+/**
+ * @openapi
+ * /api/patient/records:
+ *   get:
+ *     summary: Récupère le dossier médical du patient (avec journalisation)
+ *     tags: [Patient - M2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Liste des dossiers médicaux
+ */
+router.get("/records", getMedicalRecords);
+
+/**
+ * @openapi
+ * /api/patient/records/results/{id}/download:
+ *   get:
+ *     summary: Télécharger un résultat d'analyse
+ *     tags: [Patient - M2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Fichier téléchargé
+ */
+router.get("/records/results/:id/download", downloadResult);
+
+/**
+ * @openapi
+ * /api/patient/records/{id}/download:
+ *   get:
+ *     summary: Télécharger un dossier médical en PDF
+ *     tags: [Patient - M2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Fichier PDF
+ */
+router.get("/records/:id/download", downloadMedicalRecord);
 
 export default router;
