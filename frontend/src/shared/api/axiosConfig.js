@@ -1,4 +1,4 @@
-import keycloak from '../keycloak.js';
+﻿import keycloak from '../keycloak.js';
 
 const API_BASE = "/api";
 
@@ -14,7 +14,7 @@ async function request(path, options = {}) {
       await keycloak.updateToken(30);
       headers.Authorization = `Bearer ${keycloak.token}`;
     } catch (error) {
-      console.error("Session expirée, déconnexion forcée...");
+      console.error("Session expired, forced logout...");
       keycloak.logout({ redirectUri: window.location.origin + '/login' });
       return Promise.reject(error);
     }
@@ -25,7 +25,7 @@ async function request(path, options = {}) {
   // Backend says unauthorized while we think we're logged in -> force logout
   if (res.status === 401 && keycloak?.authenticated) {
     keycloak.logout({ redirectUri: window.location.origin + '/login' });
-    throw new Error("Session expirée. Veuillez vous reconnecter.");
+    throw new Error("Session expired. Please log in again.");
   }
 
   const data = await res.json().catch(() => ({}));
@@ -95,7 +95,7 @@ function currentRole() {
 
 const byRole = (map) => (...args) => {
   const fn = map[currentRole()];
-  if (!fn) return Promise.reject(new Error('Action non disponible pour votre rôle'));
+  if (!fn) return Promise.reject(new Error('Action non disponible pour votre r├┤le'));
   return fn(...args);
 };
 
@@ -112,11 +112,11 @@ const auth = {
     practitionerOptions: () =>
         request("/auth/practitioner-options"),
 
-    // Inscription directe d'un praticien (fonctionnalité de Hanen)
+    // Direct practitioner registration
     registerPractitioner: (payload) =>
         publicPost("/auth/register-practitioner", payload),
 
-    // Demande de création de compte praticien (fonctionnalité à conserver)
+    // Practitioner account request
     requestPractitioner: (payload) =>
         request("/auth/practitioner-requests", withBody("POST", payload)),
 };
@@ -137,6 +137,8 @@ const patient = {
         list: () => request("/patient/records"),
         results: () => request("/patient/records/results"),
     },
+
+    updateProfile: (data) => request('/patient/profile', withBody('PUT', data)),
 
     notifications: {
   list: () => request('/patient/notifications'),

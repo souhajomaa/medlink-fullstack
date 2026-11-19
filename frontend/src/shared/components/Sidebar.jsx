@@ -9,6 +9,7 @@ const patientNav = [
   { to: '/app/book', label: 'Prendre RDV', icon: '➕', description: 'Nouveau rendez-vous' },
   { to: '/app/records', label: 'Dossier médical', icon: '📋', description: 'Mes documents' },
   { to: '/app/results', label: 'Mes résultats', icon: '🧪', description: 'Analyses & bilans' },
+  { to: '/app/profile', label: 'Mon Profil', icon: '👤', description: 'Gérer mes informations' },
 ];
 
 // Navigation Praticien

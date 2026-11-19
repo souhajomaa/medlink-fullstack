@@ -1,13 +1,14 @@
+
 {
   "type": "module",
   "name": "medlink-backend",
   "version": "1.0.0",
   "description": "MedLink API - Node.js + Express + PostgreSQL",
   "main": "src/index.js",
- "scripts": {
-  "dev": "node --watch src/index.js",
-  "start": "node src/index.js",
-  "seed": "node src/seed.js"
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "seed": "node src/seed.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -18,6 +19,7 @@
     "jose": "^6.2.14",
     "jsonwebtoken": "^9.0.2",
     "node-cron": "^4.6.0",
+    "pdfkit": "^0.20.2",
     "pg": "^8.13.0",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1"

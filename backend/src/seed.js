@@ -3,30 +3,22 @@ import pool from './shared/utils/db.js';
 import { encrypt } from './shared/utils/encryption.js';
 
 async function seed() {
-  console.log('🌱 Début du seeding de la base MedLink...');
+  console.log('🌱 Initialisation de la base MedLink...');
 
   try {
-    await pool.query(`
-  DROP TABLE IF EXISTS notifications CASCADE;
-  DROP TABLE IF EXISTS journal_audit CASCADE;
-  DROP TABLE IF EXISTS lab_results CASCADE;
-  DROP TABLE IF EXISTS medical_records CASCADE;
-  DROP TABLE IF EXISTS appointments CASCADE;
-  DROP TABLE IF EXISTS practitioner_clinique CASCADE;
-  DROP TABLE IF EXISTS cliniques CASCADE;
-  DROP TABLE IF EXISTS users CASCADE;
-`);
-
     // 1. Création des tables
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
+        password_hash VARCHAR(255),
         full_name VARCHAR(255) NOT NULL,
-        role VARCHAR(20) NOT NULL CHECK (role IN ('patient', 'practitioner', 'admin')),
+        role VARCHAR(20) NOT NULL
+          CHECK (role IN ('patient', 'practitioner', 'admin')),
         specialty VARCHAR(100),
         phone TEXT,
+        consent_given BOOLEAN DEFAULT FALSE,
+        keycloak_id UUID UNIQUE,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
 
@@ -68,7 +60,7 @@ async function seed() {
         notes TEXT,
         record_date DATE DEFAULT CURRENT_DATE,
         created_at TIMESTAMPTZ DEFAULT NOW()
-        );
+      );
 
       CREATE TABLE IF NOT EXISTS lab_results (
         id SERIAL PRIMARY KEY,
@@ -99,7 +91,8 @@ async function seed() {
         type VARCHAR(50) NOT NULL,
         contenu TEXT,
         date_envoi TIMESTAMPTZ DEFAULT NOW(),
-        statut VARCHAR(20) DEFAULT 'en_attente'
+        statut VARCHAR(20) DEFAULT 'en_attente',
+        is_read BOOLEAN DEFAULT FALSE
       );
 
       CREATE TABLE IF NOT EXISTS disponibilites (
@@ -117,162 +110,440 @@ async function seed() {
         CONSTRAINT chk_dates CHECK (date_fin >= date_debut),
         CONSTRAINT chk_heures CHECK (heure_fin > heure_debut)
       );
+    `);
 
-      CREATE TABLE notifications (
-  id SERIAL PRIMARY KEY,
-  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  appointment_id INT REFERENCES appointments(id) ON DELETE SET NULL,
-  type VARCHAR(50) NOT NULL,
-  title VARCHAR(200) NOT NULL,
-  message TEXT NOT NULL,
-  is_read BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT NOW()
-);
+    // 2. Migrations pour les bases déjà existantes
+    await pool.query(`
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS consent_given BOOLEAN DEFAULT FALSE;
+
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS keycloak_id UUID;
+
+      ALTER TABLE users
+        ALTER COLUMN password_hash DROP NOT NULL;
+
+      ALTER TABLE users
+        ALTER COLUMN phone TYPE TEXT;
+
+      ALTER TABLE lab_results
+        ADD COLUMN IF NOT EXISTS practitioner_id INTEGER
+        REFERENCES users(id) ON DELETE SET NULL;
+
+      ALTER TABLE notifications
+        ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE;
+
+      ALTER TABLE notifications
+        ADD COLUMN IF NOT EXISTS utilisateur_id INTEGER
+        REFERENCES users(id) ON DELETE CASCADE;
+
+      ALTER TABLE notifications
+        ADD COLUMN IF NOT EXISTS contenu TEXT;
+
+      ALTER TABLE notifications
+        ADD COLUMN IF NOT EXISTS date_envoi TIMESTAMPTZ DEFAULT NOW();
+
+      ALTER TABLE notifications
+        ADD COLUMN IF NOT EXISTS statut VARCHAR(20) DEFAULT 'en_attente';
+    `);
+
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_keycloak_id
+        ON users(keycloak_id)
+        WHERE keycloak_id IS NOT NULL;
 
       CREATE INDEX IF NOT EXISTS idx_disponibilites_practitioner
-        ON disponibilites (practitioner_id, date_debut, date_fin);
-      CREATE INDEX idx_notifications_user ON notifications(user_id, is_read);
+        ON disponibilites(practitioner_id, date_debut, date_fin);
+
+      CREATE INDEX IF NOT EXISTS idx_notifications_user
+        ON notifications(utilisateur_id, is_read);
     `);
 
-    // Migration : ajoute practitioner_id si l'ancienne table ne l'avait pas
-    await pool.query(`
-      ALTER TABLE lab_results
-      ADD COLUMN IF NOT EXISTS practitioner_id INTEGER REFERENCES users(id) ON DELETE SET NULL
-    `);
+    console.log('✅ Tables et migrations vérifiées.');
 
-      await pool.query(`
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS keycloak_id UUID UNIQUE;
-      ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
-    `);
-
-
+    // 3. Mot de passe de démonstration
     const hash = await bcrypt.hash('password123', 10);
 
-    // 2. Nettoyage des anciennes données
-    await pool.query(`
-      TRUNCATE
-        notifications,
-        journal_audit,
-        lab_results,
-        medical_records,
-        appointments,
-        disponibilites,
-        practitioner_clinique,
-        cliniques,
-        users
-      RESTART IDENTITY CASCADE
-    `);
-    console.log('🧹 Tables vidées.');
+    // 4. Création des utilisateurs sans écraser les comptes existants
+    const demoUsers = [
+      {
+        email: 'admin@medlink.tn',
+        name: 'Admin Principal',
+        role: 'admin',
+        specialty: null,
+        phone: '+216 71 000 000'
+      },
+      {
+        email: 'patient@medlink.tn',
+        name: 'Amine Ben Salah',
+        role: 'patient',
+        specialty: null,
+        phone: '+216 98 123 456'
+      },
+      {
+        email: 'ons@medlink.tn',
+        name: 'Ons Ferid',
+        role: 'patient',
+        specialty: null,
+        phone: '+216 25 943 417'
+      },
+      {
+        email: 'sara.patient@medlink.tn',
+        name: 'Sara Trabelsi',
+        role: 'patient',
+        specialty: null,
+        phone: '+216 22 456 789'
+      },
+      {
+        email: 'doctor@medlink.tn',
+        name: 'Dr. Karim Mansouri',
+        role: 'practitioner',
+        specialty: 'Cardiologie',
+        phone: '+216 71 234 567'
+      },
+      {
+        email: 'pediatre@medlink.tn',
+        name: 'Dr. Leila Gharbi',
+        role: 'practitioner',
+        specialty: 'Pédiatrie',
+        phone: '+216 71 345 678'
+      }
+    ];
 
-    // 3. Cliniques (US-19, US-29, US-31)
-    const cliniques = await pool.query(`
-      INSERT INTO cliniques (nom, ville, adresse, telephone) VALUES
-        ('Clinique El Amen', 'Sousse', 'Avenue Habib Bourguiba, Sousse', '+216 73 111 111'),
-        ('Clinique Taoufik', 'Sfax', 'Route de Tunis, Sfax', '+216 74 222 222'),
-        ('Clinique Pasteur', 'Tunis', 'Avenue Mohamed V, Tunis', '+216 71 333 333')
-      RETURNING id, nom, ville
-    `);
+    for (const user of demoUsers) {
+      await pool.query(
+        `INSERT INTO users
+          (email, password_hash, full_name, role, specialty, phone, consent_given)
+         VALUES ($1, $2, $3, $4, $5, $6, FALSE)
+         ON CONFLICT (email) DO NOTHING`,
+        [
+          user.email,
+          hash,
+          user.name,
+          user.role,
+          user.specialty,
+          encrypt(user.phone)
+        ]
+      );
+    }
 
-    const cliniqueSousse = cliniques.rows[0].id;
-    const cliniqueSfax = cliniques.rows[1].id;
-    const cliniqueTunis = cliniques.rows[2].id;
+    // Récupération des identifiants réels, sans supposer leur ordre
+    const usersResult = await pool.query(`
+      SELECT id, email, role
+      FROM users
+      WHERE email = ANY($1::varchar[])
+    `, [demoUsers.map(user => user.email)]);
 
-    // 4. Utilisateurs
-    const users = await pool.query(
-      `INSERT INTO users (email, password_hash, full_name, role, specialty, phone) VALUES
-         ('admin@medlink.tn', $1, 'Admin Principal', 'admin', NULL, $2),
-         ('patient@medlink.tn', $1, 'Amine Ben Salah', 'patient', NULL, $3),
-         ('sara.patient@medlink.tn', $1, 'Sara Trabelsi', 'patient', NULL, $4),
-         ('doctor@medlink.tn', $1, 'Dr. Karim Mansouri', 'practitioner', 'Cardiologie', $5),
-         ('pediatre@medlink.tn', $1, 'Dr. Leila Gharbi', 'practitioner', 'Pédiatrie', $6)
-       RETURNING id, email, role`,
+    const users = Object.fromEntries(
+      usersResult.rows.map(user => [user.email, user])
+    );
+
+    const admin = users['admin@medlink.tn'];
+    const patient1 = users['patient@medlink.tn'];
+    const patientOns = users['ons@medlink.tn'];
+    const patient2 = users['sara.patient@medlink.tn'];
+    const practitioner1 = users['doctor@medlink.tn'];
+    const practitioner2 = users['pediatre@medlink.tn'];
+
+    if (
+      !admin || !patient1 || !patientOns || !patient2 ||
+      !practitioner1 || !practitioner2
+    ) {
+      throw new Error('Un ou plusieurs comptes de démonstration sont introuvables.');
+    }
+
+    // Vérification des rôles avant de créer les relations
+    if (
+      patient1.role !== 'patient' ||
+      patientOns.role !== 'patient' ||
+      patient2.role !== 'patient' ||
+      practitioner1.role !== 'practitioner' ||
+      practitioner2.role !== 'practitioner'
+    ) {
+      throw new Error('Les rôles des comptes existants ne correspondent pas au seed.');
+    }
+
+    // 5. Création ou récupération des cliniques
+    async function getOrCreateClinic(nom, ville, adresse, telephone) {
+      const existing = await pool.query(
+        `SELECT id FROM cliniques
+         WHERE nom = $1 AND ville = $2
+         ORDER BY id
+         LIMIT 1`,
+        [nom, ville]
+      );
+
+      if (existing.rows.length > 0) {
+        return existing.rows[0].id;
+      }
+
+      const inserted = await pool.query(
+        `INSERT INTO cliniques (nom, ville, adresse, telephone)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [nom, ville, adresse, telephone]
+      );
+
+      return inserted.rows[0].id;
+    }
+
+    const cliniqueSousse = await getOrCreateClinic(
+      'Clinique El Amen',
+      'Sousse',
+      'Avenue Habib Bourguiba, Sousse',
+      '+216 73 111 111'
+    );
+
+    const cliniqueSfax = await getOrCreateClinic(
+      'Clinique Taoufik',
+      'Sfax',
+      'Route de Tunis, Sfax',
+      '+216 74 222 222'
+    );
+
+    const cliniqueTunis = await getOrCreateClinic(
+      'Clinique Pasteur',
+      'Tunis',
+      'Avenue Mohamed V, Tunis',
+      '+216 71 333 333'
+    );
+
+    // 6. Affectation des praticiens aux cliniques
+    await pool.query(
+      `INSERT INTO practitioner_clinique (practitioner_id, clinique_id)
+       VALUES
+         ($1, $2),
+         ($1, $3),
+         ($4, $5)
+       ON CONFLICT DO NOTHING`,
       [
-        hash,
-        encrypt('+216 71 000 000'),
-        encrypt('+216 98 123 456'),
-        encrypt('+216 22 456 789'),
-        encrypt('+216 71 234 567'),
-        encrypt('+216 71 345 678')
+        practitioner1.id,
+        cliniqueSousse,
+        cliniqueTunis,
+        practitioner2.id,
+        cliniqueSfax
       ]
     );
-    const admin = users.rows[0].id;
-    const patient1 = users.rows[1].id; // Amine
-    const patient2 = users.rows[2].id; // Sara
-    const practitioner1 = users.rows[3].id; // Dr. Karim
-    const practitioner2 = users.rows[4].id; // Dr. Leila
 
-    // 5. Affectation praticiens ↔ cliniques (US-29)
-    await pool.query(
-        `INSERT INTO practitioner_clinique (practitioner_id, clinique_id) VALUES
-         ($1, $2), ($1, $3),
-         ($4, $5)`,
-      [practitioner1, cliniqueSousse, cliniqueTunis, practitioner2, cliniqueSfax]
-    );
+    // 7. Rendez-vous de démonstration
+    const appointments = [
+      {
+        patient: patient1.id,
+        practitioner: practitioner1.id,
+        clinic: cliniqueSousse,
+        days: 2,
+        time: '09:30',
+        reason: 'Contrôle tension',
+        type: 'consultation',
+        status: 'confirmed'
+      },
+      {
+        patient: patient1.id,
+        practitioner: practitioner1.id,
+        clinic: cliniqueTunis,
+        days: 5,
+        time: '14:00',
+        reason: 'Bilan annuel',
+        type: 'consultation',
+        status: 'pending'
+      },
+      {
+        patient: patient2.id,
+        practitioner: practitioner2.id,
+        clinic: cliniqueSfax,
+        days: 1,
+        time: '10:15',
+        reason: 'Vaccination enfant',
+        type: 'consultation',
+        status: 'confirmed'
+      },
+      {
+        patient: patient1.id,
+        practitioner: practitioner1.id,
+        clinic: cliniqueSousse,
+        days: -10,
+        time: '11:00',
+        reason: 'Suivi post-infarctus',
+        type: 'suivi',
+        status: 'completed'
+      }
+    ];
 
-    // 6. Rendez-vous
-    await pool.query(
-      `INSERT INTO appointments
-         (patient_id, practitioner_id, clinique_id, appointment_date, appointment_time, reason, type, status)
-       VALUES
-         ($1, $3, $5, CURRENT_DATE + 2, '09:30', 'Contrôle tension', 'consultation', 'confirmed'),
-         ($1, $3, $6, CURRENT_DATE + 5, '14:00', 'Bilan annuel', 'consultation', 'pending'),
-         ($2, $4, $7, CURRENT_DATE + 1, '10:15', 'Vaccination enfant', 'consultation', 'confirmed'),
-         ($1, $3, $5, CURRENT_DATE - 10, '11:00', 'Suivi post-infarctus', 'suivi', 'completed')`,
-      [patient1, patient2, practitioner1, practitioner2, cliniqueSousse, cliniqueTunis, cliniqueSfax]
-    );
+    for (const appointment of appointments) {
+      await pool.query(
+        `INSERT INTO appointments
+          (patient_id, practitioner_id, clinique_id, appointment_date,
+           appointment_time, reason, type, status)
+         SELECT $1, $2, $3, CURRENT_DATE + $4, $5, $6, $7, $8
+         WHERE NOT EXISTS (
+           SELECT 1 FROM appointments
+           WHERE patient_id = $1
+             AND practitioner_id = $2
+             AND appointment_date = CURRENT_DATE + $4
+             AND appointment_time = $5::time
+             AND reason = $6
+         )`,
+        [
+          appointment.patient,
+          appointment.practitioner,
+          appointment.clinic,
+          appointment.days,
+          appointment.time,
+          appointment.reason,
+          appointment.type,
+          appointment.status
+        ]
+      );
+    }
 
-    // 7. Dossiers médicaux
+    // 8. Dossiers médicaux
     await pool.query(
       `INSERT INTO medical_records
-         (patient_id, practitioner_id, title, diagnosis, notes, record_date)
-       VALUES
-         ($1, $2, 'Consultation cardiologique', 'HTA grade 1', 'Patient stable. Traitement maintenu.', CURRENT_DATE - 10)`,
-      [patient1, practitioner1]
+        (patient_id, practitioner_id, title, diagnosis, notes, record_date)
+       SELECT $1, $2, $3, $4, $5, CURRENT_DATE - 10
+       WHERE NOT EXISTS (
+         SELECT 1 FROM medical_records
+         WHERE patient_id = $1 AND title = $3
+       )`,
+      [
+        patient1.id,
+        practitioner1.id,
+        'Consultation cardiologique',
+        'HTA grade 1',
+        'Patient stable. Traitement maintenu.'
+      ]
     );
 
-    // 8. Résultats d'examens (avec practitioner_id — US-25)
+    // 9. Résultats d'examens
+    const labResults = [
+      {
+        patient: patient1.id,
+        practitioner: practitioner1.id,
+        name: 'Cholestérol total',
+        value: '1.95',
+        unit: 'g/L',
+        range: '1.50 - 2.00',
+        days: 12
+      },
+      {
+        patient: patient2.id,
+        practitioner: practitioner2.id,
+        name: 'Hémoglobine',
+        value: '13.2',
+        unit: 'g/dL',
+        range: '12.0 - 16.0',
+        days: 15
+      }
+    ];
+
+    for (const result of labResults) {
+      await pool.query(
+        `INSERT INTO lab_results
+          (patient_id, practitioner_id, test_name, result_value,
+           unit, reference_range, status, result_date)
+         SELECT $1, $2, $3, $4, $5, $6, 'normal', CURRENT_DATE - $7
+         WHERE NOT EXISTS (
+           SELECT 1 FROM lab_results
+           WHERE patient_id = $1
+             AND test_name = $3
+             AND result_value = $4
+         )`,
+        [
+          result.patient,
+          result.practitioner,
+          result.name,
+          result.value,
+          result.unit,
+          result.range,
+          result.days
+        ]
+      );
+    }
+
+    // 10. Journal d'audit
     await pool.query(
-      `INSERT INTO lab_results
-         (patient_id, practitioner_id, test_name, result_value, unit, reference_range, status, result_date)
-       VALUES
-         ($1, $3, 'Cholestérol total', '1.95', 'g/L', '1.50 - 2.00', 'normal', CURRENT_DATE - 12),
-         ($2, $4, 'Hémoglobine', '13.2', 'g/dL', '12.0 - 16.0', 'normal', CURRENT_DATE - 15)`,
-      [patient1, patient2, practitioner1, practitioner2]
+      `INSERT INTO journal_audit
+        (utilisateur_id, action, ressource, adresse_ip)
+       SELECT $1, 'LOGIN', 'Authentification réussie', '192.168.1.10'
+       WHERE NOT EXISTS (
+         SELECT 1 FROM journal_audit
+         WHERE utilisateur_id = $1 AND action = 'LOGIN'
+           AND ressource = 'Authentification réussie'
+       )`,
+      [patient1.id]
     );
 
-    // 9. Journal d'audit de démo (US-35, US-47)
     await pool.query(
-      `INSERT INTO journal_audit (utilisateur_id, action, ressource, adresse_ip) VALUES
-         ($1, 'LOGIN', 'Authentification réussie', '192.168.1.10'),
-         ($2, 'VIEW_RECORD', 'Dossier médical #1', '192.168.1.10')`,
-      [patient1, practitioner1]
+      `INSERT INTO journal_audit
+        (utilisateur_id, action, ressource, adresse_ip)
+       SELECT $1, 'VIEW_RECORD', 'Dossier médical #1', '192.168.1.10'
+       WHERE NOT EXISTS (
+         SELECT 1 FROM journal_audit
+         WHERE utilisateur_id = $1 AND action = 'VIEW_RECORD'
+           AND ressource = 'Dossier médical #1'
+       )`,
+      [practitioner1.id]
     );
 
-    // 10. Disponibilités de démo (US-18, US-21)
-    await pool.query(
-      `INSERT INTO disponibilites
-         (practitioner_id, clinique_id, date_debut, date_fin, heure_debut, heure_fin, type)
-       VALUES
-         ($1, $2, CURRENT_DATE, CURRENT_DATE + 30, '09:00', '12:00', 'disponible'),
-         ($1, $3, CURRENT_DATE, CURRENT_DATE + 30, '14:00', '18:00', 'disponible'),
-         ($4, $5, CURRENT_DATE, CURRENT_DATE + 30, '08:30', '12:30', 'disponible')`,
-      [practitioner1, cliniqueSousse, cliniqueTunis, practitioner2, cliniqueSfax]
-    );
+    // 11. Disponibilités des praticiens
+    const availabilities = [
+      {
+        practitioner: practitioner1.id,
+        clinic: cliniqueSousse,
+        start: '09:00',
+        end: '12:00'
+      },
+      {
+        practitioner: practitioner1.id,
+        clinic: cliniqueTunis,
+        start: '14:00',
+        end: '18:00'
+      },
+      {
+        practitioner: practitioner2.id,
+        clinic: cliniqueSfax,
+        start: '08:30',
+        end: '12:30'
+      }
+    ];
 
-    console.log('✅ Seed terminé avec succès !\n');
-    console.log('🔑 Comptes de démo (Mot de passe : password123) :');
-    console.log('  🔒 Admin       : admin@medlink.tn');
-    console.log('  👤 Patient     : patient@medlink.tn      (Amine)');
-    console.log('  👤 Patient     : sara.patient@medlink.tn (Sara)');
-    console.log('  👨‍⚕️ Praticien  : doctor@medlink.tn      (Karim — Cardiologie — Sousse/Tunis)');
-    console.log('  👩‍⚕️ Praticien  : pediatre@medlink.tn    (Leila — Pédiatrie — Sfax)\n');
-    console.log('📌 Patientèle seed :');
-    console.log('  • Karim → Amine');
-    console.log('  • Leila → Sara\n');
+    for (const availability of availabilities) {
+      await pool.query(
+        `INSERT INTO disponibilites
+          (practitioner_id, clinique_id, date_debut, date_fin,
+           heure_debut, heure_fin, type)
+         SELECT $1, $2, CURRENT_DATE, CURRENT_DATE + 30, $3, $4, 'disponible'
+         WHERE NOT EXISTS (
+           SELECT 1 FROM disponibilites
+           WHERE practitioner_id = $1
+             AND clinique_id = $2
+             AND date_debut = CURRENT_DATE
+             AND heure_debut = $3::time
+         )`,
+        [
+          availability.practitioner,
+          availability.clinic,
+          availability.start,
+          availability.end
+        ]
+      );
+    }
 
+    console.log('✅ Seed terminé.');
+    console.log('🔑 Comptes de démonstration (mot de passe initial : password123) :');
+    console.log('Admin       : admin@medlink.tn');
+    console.log('Patient     : patient@medlink.tn (Amine)');
+    console.log('Patient     : ons@medlink.tn (Ons)');
+    console.log('Patient     : sara.patient@medlink.tn (Sara)');
+    console.log('Praticien   : doctor@medlink.tn (Karim)');
+    console.log('Praticienne : pediatre@medlink.tn (Leila)');
+    console.log('ℹ️ Les comptes déjà existants ne voient pas leur mot de passe ni leur consentement écrasés.');
+
+    await pool.end();
     process.exit(0);
   } catch (err) {
-    console.error('❌ Échec du seed:', err);
+    console.error('❌ Échec du seed :', err);
+    await pool.end();
     process.exit(1);
   }
 }
