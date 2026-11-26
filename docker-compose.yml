@@ -149,5 +149,6 @@ volumes:
   postgres_data:
   keycloak_data:
   vault_token:
+  clamav_db:
 
 

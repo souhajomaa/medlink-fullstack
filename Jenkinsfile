@@ -1,3 +1,4 @@
+//docker hub
 pipeline {
   agent { node { label 'built-in'; customWorkspace '/home/souhajo/jenkins_workspace/medlink' } }
   environment { COMPOSE_PROJECT_NAME = 'medlink-ci' }
@@ -42,12 +43,29 @@ pipeline {
         '''
       }
     }
+        stage('Publier sur Docker Hub') {
+          steps {
+            withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
+                                              usernameVariable: 'DH_USER',
+                                              passwordVariable: 'DH_PASS')]) {
+              sh '''
+                echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin
+                for svc in backend frontend; do
+                  docker build -t $DH_USER/medlink-$svc:${BUILD_NUMBER} \
+                               -t $DH_USER/medlink-$svc:latest ./$svc
+                  docker push --all-tags $DH_USER/medlink-$svc
+                done
+              '''
+            }
+          }
+        }
   }
   post {
     always {
       publishHTML(target: [reportDir: '.', reportFiles: 'zap-frontend.html',
                            reportName: 'Rapport ZAP', allowMissing: true, keepAll: true])
       sh 'docker compose down -v || true'
+      sh 'docker logout || true'
     }
   }
 }
