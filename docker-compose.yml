@@ -64,7 +64,6 @@ services:
       - DB_PORT=5432
       - DB_USER=medlink
       - DB_NAME=medlink
-      - ALLOW_LEGACY_AUTH=true
       - KEYCLOAK_URL=http://keycloak:8080
       - KEYCLOAK_PUBLIC_URL=http://localhost:8081
       - KEYCLOAK_REALM=medlink
