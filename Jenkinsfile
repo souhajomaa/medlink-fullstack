@@ -35,7 +35,7 @@ pipeline {
     stage('Tests RBAC (US-62)') {
       steps {
         sh '''
-          docker run --rm --network medlink-ci_default -e BASE_URL=http://frontend/api \
+          docker run --rm --network medlink-ci_default -e BASE_URL=http://backend:4000/api \
             -v "$PWD/backend/tests":/t alpine:3.20 \
             sh -c "apk add --no-cache bash curl openssl >/dev/null && bash /t/test-rbac.sh"
         '''

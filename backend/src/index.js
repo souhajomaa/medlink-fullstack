@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import helmet from "helmet"; // ✅ US-61 : Décommenté et activé
+import helmet from "helmet"; // ✅ US-61
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./config/swagger.js";
 
@@ -28,12 +28,35 @@ const PORT = process.env.PORT || 4000;
 // 1. Faire confiance au premier proxy (Nginx/Docker) pour lire les vrais en-têtes (IP, HTTPS)
 app.set('trust proxy', 1);
 
-// 2. En-têtes de sécurité HTTP (US-61)
-app.use(helmet());
+// 2. En-têtes de sécurité HTTP (US-61) Helmet avec CSP personnalisé + Anti-clickjacking
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"], // Nécessaire pour React
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "http://localhost:3000", "http://localhost:4000", "http://localhost:8081"],
+      fontSrc: ["'self'", "data:"],
+      objectSrc: ["'none'"],
+      frameSrc: ["'none'"], // Anti-clickjacking
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Évite les problèmes avec certains assets React
+}));
+
+app.disable('x-powered-by');
 
 // 3. FORCER HTTPS (US-44) - DOIT être avant les routes pour bloquer les requêtes non sécurisées
 app.use(enforceHTTPS);
-
+// Forcer le Cache-Control (No cache pour les données sensibles)
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('X-Content-Type-Options', 'nosniff'); // Renforcement supplémentaire
+  next();
+});
 // =================================================================
 // ⚙️ MIDDLEWARES GLOBAUX
 // =================================================================
