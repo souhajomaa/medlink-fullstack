@@ -6,9 +6,11 @@ export default function Disponibilites() {
   const { user } = useAuth();
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [clinics, setClinics] = useState([]);
+  const [clinicsLoading, setClinicsLoading] = useState(true);
   
   const [form, setForm] = useState({
-    clinique_id: '1',
+    clinique_id: '',
     date_debut: new Date().toISOString().split('T')[0],
     date_fin: new Date().toISOString().split('T')[0],
     heure_debut: '08:00',
@@ -24,6 +26,7 @@ export default function Disponibilites() {
   const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
+    fetchClinics();
     fetchSlots();
   }, []);
 
@@ -40,10 +43,38 @@ export default function Disponibilites() {
     }
   };
 
+  const fetchClinics = async () => {
+  try {
+    setClinicsLoading(true);
+
+    const response = await api.practitioner.clinics.list();
+
+    if (response.success) {
+      const data = response.data || [];
+      setClinics(data);
+
+      if (data.length > 0) {
+        setForm((prev) => ({
+          ...prev,
+          clinique_id: String(data[0].id),
+        }));
+      }
+    }
+  } catch (error) {
+    console.error("Erreur chargement des cliniques :", error);
+    setMessage({
+      type: 'error',
+      text: "Impossible de charger vos cliniques.",
+    });
+  } finally {
+    setClinicsLoading(false);
+  }
+};
+
   const resetForm = () => {
     setEditingId(null);
     setForm({
-      clinique_id: '1',
+      clinique_id: '',
       date_debut: new Date().toISOString().split('T')[0],
       date_fin: new Date().toISOString().split('T')[0],
       heure_debut: '08:00',
@@ -144,16 +175,25 @@ export default function Disponibilites() {
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Clinique</label>
-            <select 
-              required
-              className="w-full rounded-lg border-gray-300 border p-2.5 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
-              value={form.clinique_id}
-              onChange={(e) => setForm({ ...form, clinique_id: e.target.value })}
-            >
-              <option value="1">Clinique El Amen (Sousse)</option>
-              <option value="2">Clinique Taoufik (Sfax)</option>
-              <option value="3">Clinique Pasteur (Tunis)</option>
-            </select>
+            <select
+  required
+  disabled={clinicsLoading || clinics.length === 0 || editingId !== null}
+  className="w-full rounded-lg border-gray-300 border p-2.5 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
+  value={form.clinique_id}
+  onChange={(e) =>
+    setForm({ ...form, clinique_id: e.target.value })
+  }
+>
+  <option value="">
+    {clinicsLoading ? "Chargement..." : "Sélectionner une clinique"}
+  </option>
+
+  {clinics.map((clinic) => (
+    <option key={clinic.id} value={String(clinic.id)}>
+      {clinic.nom} ({clinic.ville})
+    </option>
+  ))}
+</select>
           </div>
 
           <div>

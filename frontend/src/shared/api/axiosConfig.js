@@ -153,6 +153,10 @@ const practitioner = {
     updateStatus: (id, status) =>
       request(`/practitioner/appointments/${id}`, withBody('PATCH', { status })),
   },
+
+  clinics: {
+  list: () => request('/practitioner/clinics'),
+},
   disponibilites: {
     list: () => request('/practitioner/disponibilites'),
     create: (data) => request('/practitioner/disponibilites', withBody('POST', data)),
