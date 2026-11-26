@@ -1,6 +1,5 @@
 import { Router } from "express";
 import {
-  login,
   getMe,
   register,
   practitionerOptions,
@@ -11,36 +10,6 @@ import { registerLimiter } from "../../shared/middleware/rate-limit.js";
 
 const router = Router();
 
-/**
- * @openapi
- * /api/auth/login:
- *   post:
- *     summary: Connexion d'un utilisateur (génère un Token JWT)
- *     tags: [Authentification - M1]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - password
- *             properties:
- *               email:
- *                 type: string
- *                 example: "patient@medlink.tn"
- *               password:
- *                 type: string
- *                 example: "password123"
- *     responses:
- *       200:
- *         description: Connexion réussie (retourne le token et les infos user)
- *       401:
- *         description: Identifiants invalides
- */
-// Route publique : tout le monde peut essayer de se connecter
-router.post("/login", login);
 
 /**
  * @openapi

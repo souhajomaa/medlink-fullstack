@@ -1,0 +1,41 @@
+🛡️  Tests RBAC MedLink (US-62) — cible : http://localhost:3000/api
+
+── A1. Route publique
+  ✅ GET /auth/practitioner-options sans token (HTTP 200)
+
+── A2. Accès sans token (401 attendu)
+  ✅ GET /auth/me (HTTP 401)
+  ✅ GET /patient/appointments (HTTP 401)
+  ✅ GET /practitioner/appointments (HTTP 401)
+  ✅ GET /admin/users (HTTP 401)
+
+── A3. Tokens invalides ou falsifiés (401 attendu)
+  ✅ token aléatoire sur /patient/appointments (HTTP 401)
+  ✅ token HS256 forgé sur /patient/appointments (HTTP 401)
+  ✅ token alg=none sur /patient/appointments (HTTP 401)
+  ✅ token aléatoire sur /practitioner/appointments (HTTP 401)
+  ✅ token HS256 forgé sur /practitioner/appointments (HTTP 401)
+  ✅ token alg=none sur /practitioner/appointments (HTTP 401)
+  ✅ token aléatoire sur /admin/users (HTTP 401)
+  ✅ token HS256 forgé sur /admin/users (HTTP 401)
+  ✅ token alg=none sur /admin/users (HTTP 401)
+
+── A4. Ancien login supprimé (404 attendu)
+  ✅ POST /auth/login (HTTP 404)
+
+── B. Contrôle des rôles avec de vrais tokens Keycloak
+  Patient :
+  ✅ patient → /patient/appointments (autorisé) (HTTP 200)
+  ✅ patient → /practitioner/appointments (interdit) (HTTP 403)
+  ✅ patient → /admin/users (interdit) (HTTP 403)
+  Praticien :
+  ✅ praticien → /practitioner/appointments (autorisé) (HTTP 200)
+  ✅ praticien → /patient/appointments (interdit) (HTTP 403)
+  ✅ praticien → /admin/users (interdit) (HTTP 403)
+  Admin :
+  ✅ admin → /admin/users (autorisé) (HTTP 200)
+  ✅ admin → /patient/appointments (interdit) (HTTP 403)
+  ✅ admin → /practitioner/appointments (interdit) (HTTP 403)
+
+==============================================
+Résultat : 24 réussis, 0 échoués, 0 groupe(s) ignoré(s)
