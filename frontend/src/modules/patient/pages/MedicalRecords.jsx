@@ -17,13 +17,28 @@ export default function MedicalRecords() {
   if (loading) return <div className="py-10 text-center">Chargement...</div>;
   if (error) return <div className="rounded-lg bg-error-container p-4 text-error">{error}</div>;
 
-const handleDownloadRecord = async (id, name) => {
-  try {
-    await api.download(`/patient/records/${id}/download`, `${name || 'document'}.txt`);
-  } catch (err) {
-    alert(err.message);
-  }
-};
+  const handleDownloadRecord = async (id, title) => {
+    try {
+      const token = localStorage.getItem('medlink_token');
+      const response = await fetch(`/api/patient/records/${id}/download`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error("Erreur de téléchargement");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title || 'dossier'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -51,7 +66,7 @@ const handleDownloadRecord = async (id, name) => {
                 <p className="text-sm"><span className="font-semibold">Diagnostic :</span> {r.diagnosis}</p>
                 <p className="text-sm mt-1"><span className="font-semibold">Notes :</span> {r.notes}</p>
               </div>
-
+              
               {/* --- AJOUT DU BOUTON ICI --- */}
               <div className="flex justify-end pt-2">
                 <button

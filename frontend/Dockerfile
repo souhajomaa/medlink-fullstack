@@ -4,7 +4,7 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci --prefer-offline --no-audit --no-fund --fetch-retries=5 --fetch-timeout=300000
 
 COPY . .
 # On construit l'app pour la production

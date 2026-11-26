@@ -8,7 +8,7 @@ const patientNav = [
   { to: '/app/appointments', label: 'Mes rendez-vous', icon: '📅', description: 'Gérer mes RDV' },
   { to: '/app/book', label: 'Prendre RDV', icon: '➕', description: 'Nouveau rendez-vous' },
   // { to: '/app/records', label: 'Dossier médical', icon: '📋', description: 'Mes documents' },
-  { to: '/app/patients', label: 'Dossiers médicaux', icon: '📁', description: 'Historique complet' },
+{ to: '/app/records', label: 'Dossiers médicaux', icon: '📁', description: 'Historique complet' },
   { to: '/app/results', label: 'Mes résultats', icon: '🧪', description: 'Analyses & bilans' },
 ];
 
