@@ -209,77 +209,40 @@ const patient = {
 
 // --- Module PRACTITIONER ---
 const practitioner = {
-    dashboard: () => request('/dashboard'),
+  dashboard: () => request('/dashboard'),
+  appointments: {
+    list: () => request('/practitioner/appointments'),
+    updateStatus: (id, status) =>
+      request(`/practitioner/appointments/${id}`, withBody('PATCH', { status })),
+  },
 
-    appointments: {
-        list: () => request('/practitioner/appointments'),
-
-        updateStatus: (id, status) =>
-            request(
-                `/practitioner/appointments/${id}`,
-                withBody('PATCH', { status })
-            ),
-    },
-
-    disponibilites: {
-        list: () => request('/practitioner/disponibilites'),
-
-        create: (data) =>
-            request(
-                '/practitioner/disponibilites',
-                withBody('POST', data)
-            ),
-
-        remove: (id) =>
-            request(`/practitioner/disponibilites/${id}`, {
-                method: 'DELETE',
-            }),
-
-        update: (id, data) =>
-            request(
-                `/practitioner/disponibilites/${id}`,
-                withBody('PUT', data)
-            ),
-    },
-
-    patients: {
-        search: (q = '') =>
-            request(
-                `/practitioner/patients${q ? `?q=${encodeURIComponent(q)}` : ''}`
-            ),
-
-        records: (id) =>
-            request(`/practitioner/patients/${id}/records`),
-
-        results: (id) =>
-            request(`/practitioner/patients/${id}/results`),
-
-        addRecord: (id, data) =>
-            request(
-                `/practitioner/patients/${id}/records`,
-                withBody('POST', data)
-            ),
-
-        addResult: (id, data) =>
-            request(
-                `/practitioner/patients/${id}/results`,
-                withBody('POST', data)
-            ),
-    },
-
-    records: {
-        list: () => request('/practitioner/records'),
-
-        create: (data) =>
-            request('/practitioner/records', withBody('POST', data)),
-    },
-
-    results: {
-        list: () => request('/practitioner/results/recent'),
-
-        create: (data) =>
-            request('/practitioner/results', withBody('POST', data)),
-    },
+  clinics: {
+  list: () => request('/practitioner/clinics'),
+},
+  disponibilites: {
+    list: () => request('/practitioner/disponibilites'),
+    create: (data) => request('/practitioner/disponibilites', withBody('POST', data)),
+    remove: (id) => request(`/practitioner/disponibilites/${id}`, { method: 'DELETE' }),
+    update: (id, data) => request(`/practitioner/disponibilites/${id}`, withBody("PUT", data)),
+  },
+  patients: {
+    search: (q = '') =>
+      request(`/practitioner/patients${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+    records: (id) => request(`/practitioner/patients/${id}/records`),
+    results: (id) => request(`/practitioner/patients/${id}/results`),
+    addRecord: (id, data) =>
+      request(`/practitioner/patients/${id}/records`, withBody('POST', data)),
+    addResult: (id, data) =>
+      request(`/practitioner/patients/${id}/results`, withBody('POST', data)),
+  },
+  records: {
+    list: () => request('/practitioner/records'),
+    create: (data) => request('/practitioner/records', withBody('POST', data)),
+  },
+  results: {
+  list: () => request('/practitioner/results/recent'),
+  create: (data) => request('/practitioner/results', withBody('POST', data)),
+},
 };
 
 // --- Module ADMIN ---
