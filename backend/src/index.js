@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-//us-61 import helmet from 'helmet';
+import helmet from "helmet"; // ✅ US-61 : Décommenté et activé
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./config/swagger.js";
 
@@ -21,11 +21,22 @@ dotenv.config({
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Le backend est derrière nginx : on fait confiance à un seul proxy
-// pour lire l'IP réelle du client (limitation de débit, journal d'audit).
-app.set("trust proxy", 1);
+// =================================================================
+// 🛡️ CONFIGURATION DE SÉCURITÉ (Doit être en TOUT PREMIER)
+// =================================================================
 
-// Middlewares globaux
+// 1. Faire confiance au premier proxy (Nginx/Docker) pour lire les vrais en-têtes (IP, HTTPS)
+app.set('trust proxy', 1);
+
+// 2. En-têtes de sécurité HTTP (US-61)
+app.use(helmet());
+
+// 3. FORCER HTTPS (US-44) - DOIT être avant les routes pour bloquer les requêtes non sécurisées
+app.use(enforceHTTPS);
+
+// =================================================================
+// ⚙️ MIDDLEWARES GLOBAUX
+// =================================================================
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
@@ -36,20 +47,16 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", service: "MedLink API", version: "1.0.0" });
 });
-// 1. Faire confiance au premier proxy (Nginx/Docker) pour lire les vrais en-têtes
-app.set('trust proxy', 1);
 
-// 2. En-têtes de sécurité (US-61)
-//us-61 app.use(helmet());
-
-// 3. FORCER HTTPS (US-44) - DOIT ÊTRE AVANT authenticate !
-app.use(enforceHTTPS);
-// Montage des modules (Le cœur du monolithe modulaire)
+// =================================================================
+// 🚀 MONTAGE DES MODULES (Le cœur du monolithe modulaire)
+// =================================================================
 app.use("/api/auth", authRoutes);
 app.use("/api/patient", patientRoutes);
 app.use("/api/practitioner", practitionerRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+
 // Gestionnaire 404
 app.use((req, res) => {
   res.status(404).json({ error: "Route non trouvée" });
@@ -57,14 +64,15 @@ app.use((req, res) => {
 
 // Gestionnaire d'erreurs global
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error("❌ Erreur serveur:", err.stack);
   res.status(500).json({ error: "Erreur interne du serveur" });
 });
 
-//Démarrage du cron de rappel
+// =================================================================
+// ▶️ DÉMARRAGE
+// =================================================================
 startReminderWorker();
 
-// Démarrage du serveur
 app.listen(PORT, () => {
   console.log(`🚀 MedLink API running on http://localhost:${PORT}`);
 });

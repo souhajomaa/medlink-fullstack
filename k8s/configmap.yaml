@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: medlink-config
+data:
+  NODE_ENV: "production"
+  PORT: "4000"
+  DB_HOST: "db"
+  DB_PORT: "5432"
+  DB_USER: "medlink"
+  DB_NAME: "medlink"
+  KEYCLOAK_URL: "http://keycloak:8080"
+  KEYCLOAK_PUBLIC_URL: "https://keycloak.medlink.local"
+  KEYCLOAK_REALM: "medlink"
+  KEYCLOAK_ISSUER: "https://keycloak.medlink.local/realms/medlink"
+  KEYCLOAK_JWKS_URL: "http://keycloak:8080/realms/medlink/protocol/openid-connect/certs"
+  KEYCLOAK_CLIENT_ID: "medlink-app"
+  KEYCLOAK_ADMIN_CLIENT_ID: "medlink-backend"
+  KEYCLOAK_BACKEND_CLIENT_ID: "medlink-backend"
+  FRONTEND_URL: "https://medlink.local"
+  CLAMAV_HOST: "clamav"
+  CLAMAV_PORT: "3310"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-config
+data:
+  KC_HOSTNAME: "https://keycloak.medlink.local"
+  KC_PROXY_HEADERS: "xforwarded"
+  KC_HTTP_ENABLED: "true"
+  KC_HEALTH_ENABLED: "true"
+  SMTP_HOST: "mailpit"
+  SMTP_PORT: "1025"
+  SMTP_FROM: "noreply@medlink.local"
+  SMTP_AUTH: "false"
+  SMTP_SSL: "false"
+  SMTP_STARTTLS: "false"

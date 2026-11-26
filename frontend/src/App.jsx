@@ -25,7 +25,6 @@ import Patients from './modules/practitioner/pages/Patients';
 import DossiersMedicaux from './modules/practitioner/pages/DossiersMedicaux';
 import ComptesRendus from './modules/practitioner/pages/ComptesRendus';
 import PublierResultats from './modules/practitioner/pages/PublierResultats';
-import RecordsPage from './modules/practitioner/pages/DossiersMedicaux';
 
 // Pages administrateur
 import AdminDashboard from './modules/admin/pages/Admin';
@@ -63,12 +62,14 @@ function PrivateRoute({ children }) {
         );
     }
 
-    if (!user) return <Navigate to="/login" replace />;
+    if (!user) {
+        return <Navigate to="/login" replace />;
+    }
 
     return children;
 }
 
-// Protection des routes selon le rôle
+// Protection : route réservée à certains rôles
 function RoleRoute({ roles, children }) {
     const { user } = useAuth();
 
@@ -81,11 +82,14 @@ function RoleRoute({ roles, children }) {
 function DashboardRouter() {
     const { user } = useAuth();
 
-    return user?.role === 'admin'
-        ? <AdminDashboard />
-        : <Dashboard />;
+    if (user?.role === 'admin') {
+        return <AdminDashboard />;
+    }
+
+    return <Dashboard />;
 }
-// Affichage des dossiers médicaux selon le rôle
+
+// Dossiers : patient voit ses dossiers, praticien voit ses patients
 function RecordsRouter() {
     const { user } = useAuth();
 
@@ -99,6 +103,7 @@ function RecordsRouter() {
 
     return <Navigate to="/app" replace />;
 }
+
 export default function App() {
     return (
         <>
@@ -109,7 +114,10 @@ export default function App() {
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
-                <Route path="/signup-practitioner" element={<SignupPractitioner />} />
+                <Route
+                    path="/signup-practitioner"
+                    element={<SignupPractitioner />}
+                />
 
                 {/* Routes protégées */}
                 <Route
@@ -122,54 +130,179 @@ export default function App() {
                 >
                     <Route index element={<DashboardRouter />} />
 
-                    {/* Patient */}
-                    <Route path="appointments" element={<Appointments />} />
-                    <Route path="book" element={<BookAppointment />} />
-                    <Route path="records" element={<Patients />} />
-                    {/* <Route path="records" element={<RecordsRouter />} /> */}
-                    <Route path="records/:id" element={<DossiersMedicaux />} />
-                    <Route path="results" element={<Results />} />
+                    {/* Commun à tous les utilisateurs connectés */}
                     <Route path="profile" element={<Profile />} />
 
-                    {/* Praticien */}
-                    <Route path="disponibilites" element={<Disponibilites />} />
-                    <Route path="agenda" element={<Agenda />} />
-                    <Route path="patients" element={<Patients />} />
-                    <Route path="dossiers/:id" element={<DossiersMedicaux />} />
-                    <Route path="comptes-rendus" element={<ComptesRendus />} />
-                    <Route path="publier-resultats" element={<PublierResultats />} />
-                    <Route path="records" element={<RecordsPage />} />
-                    <Route path="records/:id" element={<DossiersMedicaux />} />
+                    {/* Patient et praticien */}
+                    <Route
+                        path="appointments"
+                        element={
+                            <RoleRoute roles={['patient', 'practitioner']}>
+                                <Appointments />
+                            </RoleRoute>
+                        }
+                    />
 
-                    {/* Administrateur */}
+                    <Route
+                        path="records"
+                        element={
+                            <RoleRoute roles={['patient', 'practitioner']}>
+                                <RecordsRouter />
+                            </RoleRoute>
+                        }
+                    />
+
+                    {/* Patient uniquement */}
+                    <Route
+                        path="book"
+                        element={
+                            <RoleRoute roles={['patient']}>
+                                <BookAppointment />
+                            </RoleRoute>
+                        }
+                    />
+
+                    <Route
+                        path="results"
+                        element={
+                            <RoleRoute roles={['patient']}>
+                                <Results />
+                            </RoleRoute>
+                        }
+                    />
+
+                    {/* Praticien uniquement */}
+                    <Route
+                        path="disponibilites"
+                        element={
+                            <RoleRoute roles={['practitioner']}>
+                                <Disponibilites />
+                            </RoleRoute>
+                        }
+                    />
+
+                    <Route
+                        path="agenda"
+                        element={
+                            <RoleRoute roles={['practitioner']}>
+                                <Agenda />
+                            </RoleRoute>
+                        }
+                    />
+
+                    <Route
+                        path="patients"
+                        element={
+                            <RoleRoute roles={['practitioner']}>
+                                <Patients />
+                            </RoleRoute>
+                        }
+                    />
+
+                    <Route
+                        path="dossiers/:id"
+                        element={
+                            <RoleRoute roles={['practitioner']}>
+                                <DossiersMedicaux />
+                            </RoleRoute>
+                        }
+                    />
+
+                    {/* Alias conservé pour les anciens liens */}
+                    <Route
+                        path="records/:id"
+                        element={
+                            <RoleRoute roles={['practitioner']}>
+                                <DossiersMedicaux />
+                            </RoleRoute>
+                        }
+                    />
+
+                    <Route
+                        path="comptes-rendus"
+                        element={
+                            <RoleRoute roles={['practitioner']}>
+                                <ComptesRendus />
+                            </RoleRoute>
+                        }
+                    />
+
+                    <Route
+                        path="publier-resultats"
+                        element={
+                            <RoleRoute roles={['practitioner']}>
+                                <PublierResultats />
+                            </RoleRoute>
+                        }
+                    />
+
+                    {/* Administrateur uniquement */}
                     <Route
                         path="admin/users"
-                        element={<RoleRoute roles={['admin']}><AdminUsers /></RoleRoute>}
+                        element={
+                            <RoleRoute roles={['admin']}>
+                                <AdminUsers />
+                            </RoleRoute>
+                        }
                     />
+
                     <Route
                         path="admin/cliniques"
-                        element={<RoleRoute roles={['admin']}><AdminCliniques /></RoleRoute>}
+                        element={
+                            <RoleRoute roles={['admin']}>
+                                <AdminCliniques />
+                            </RoleRoute>
+                        }
                     />
+
                     <Route
                         path="admin/audit"
-                        element={<RoleRoute roles={['admin']}><AdminAudit /></RoleRoute>}
+                        element={
+                            <RoleRoute roles={['admin']}>
+                                <AdminAudit />
+                            </RoleRoute>
+                        }
                     />
+
                     <Route
                         path="admin/rendez-vous"
-                        element={<RoleRoute roles={['admin']}><AdminRendezVous /></RoleRoute>}
+                        element={
+                            <RoleRoute roles={['admin']}>
+                                <AdminRendezVous />
+                            </RoleRoute>
+                        }
                     />
+
                     <Route
                         path="admin/statistiques"
-                        element={<RoleRoute roles={['admin']}><AdminStats /></RoleRoute>}
+                        element={
+                            <RoleRoute roles={['admin']}>
+                                <AdminStats />
+                            </RoleRoute>
+                        }
                     />
+
                     <Route
                         path="admin/appels"
-                        element={<RoleRoute roles={['admin']}><AdminAppels /></RoleRoute>}
+                        element={
+                            <RoleRoute roles={['admin']}>
+                                <AdminAppels />
+                            </RoleRoute>
+                        }
+                    />
+
+                    {/* Route /app inconnue */}
+                    <Route
+                        path="*"
+                        element={<Navigate to="/app" replace />}
                     />
                 </Route>
 
-                {/* Route inconnue */}
-                <Route path="*" element={<Navigate to="/" replace />} />
+                {/* Route globale inconnue */}
+                <Route
+                    path="*"
+                    element={<Navigate to="/" replace />}
+                />
             </Routes>
         </>
     );

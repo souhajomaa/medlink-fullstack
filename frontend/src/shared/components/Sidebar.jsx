@@ -10,7 +10,6 @@ const patientNav = [
   // { to: '/app/records', label: 'Dossier médical', icon: '📋', description: 'Mes documents' },
   { to: '/app/patients', label: 'Dossiers médicaux', icon: '📁', description: 'Historique complet' },
   { to: '/app/results', label: 'Mes résultats', icon: '🧪', description: 'Analyses & bilans' },
-  { to: '/app/profile', label: 'Mon Profil', icon: '👤', description: 'Gérer mes informations' },
 ];
 
 // Navigation Praticien

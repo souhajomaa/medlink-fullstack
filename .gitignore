@@ -51,6 +51,8 @@ Operating system
 Thumbs.db
 desktop.ini
 
+
+secrets/
 # Database backups
 *.sql
 *.dump

@@ -6,9 +6,9 @@
   "description": "MedLink API - Node.js + Express + PostgreSQL",
   "main": "src/index.js",
   "scripts": {
-    "dev": "node --watch src/index.js",
-    "start": "node src/index.js",
-    "seed": "node src/seed.js"
+    "dev": "node --watch src/bootstrap.js ./index.js",
+    "start": "node src/bootstrap.js ./index.js",
+    "seed": "node src/bootstrap.js ./seed.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -16,6 +16,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "express-rate-limit": "^8.7.3",
+    "helmet": "^8.3.0",
     "jose": "^6.2.14",
     "jsonwebtoken": "^9.0.2",
     "node-cron": "^4.6.0",

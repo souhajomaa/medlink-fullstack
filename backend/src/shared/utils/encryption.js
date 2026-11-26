@@ -1,32 +1,25 @@
 
-import crypto from 'crypto';
-import dotenv from 'dotenv';
+import crypto from 'node:crypto';
+import { getSecret } from './secrets.js';
 
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+// La clé doit être une clé AES-256 encodée en hexadécimal (32 octets).
+const ENCRYPTION_KEY = getSecret('encryption_key');
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-dotenv.config({
-    path: path.resolve(__dirname, '../../../../.env')
-});
-
-// Clé AES-256 : 32 octets exactement
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
-
-if (!ENCRYPTION_KEY || !/^[0-9a-fA-F]{64}$/.test(ENCRYPTION_KEY)) {
+if (!/^[0-9a-fA-F]{64}$/.test(ENCRYPTION_KEY)) {
     throw new Error(
         'ENCRYPTION_KEY doit contenir exactement 64 caractères hexadécimaux.'
     );
 }
 
 const KEY = Buffer.from(ENCRYPTION_KEY, 'hex');
+
 const IV_LENGTH = 12;
 const LEGACY_IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
 
 /**
- * Chiffrement AES-256-GCM
+ * Chiffrement AES-256-GCM.
+ * Format : IV:encrypted:authTag
  */
 export function encrypt(text) {
     if (text === null || text === undefined || text === '') {
@@ -34,30 +27,35 @@ export function encrypt(text) {
     }
 
     const iv = crypto.randomBytes(IV_LENGTH);
-
     const cipher = crypto.createCipheriv('aes-256-gcm', KEY, iv);
 
     let encrypted = cipher.update(String(text), 'utf8', 'hex');
     encrypted += cipher.final('hex');
 
+    const authTag = cipher.getAuthTag();
+
     return [
         iv.toString('hex'),
         encrypted,
-        cipher.getAuthTag().toString('hex')
+        authTag.toString('hex')
     ].join(':');
 }
 
 /**
- * Déchiffrement AES-256-GCM
- * Compatible avec les anciens IV de 16 octets.
+ * Déchiffrement AES-256-GCM.
+ * Accepte les IV GCM de 12 octets et les anciens IV de 16 octets.
  */
 export function decrypt(encryptedText) {
-    if (!encryptedText) return null;
+    if (!encryptedText) {
+        return null;
+    }
 
     try {
         const parts = encryptedText.split(':');
 
-        if (parts.length !== 3) return null;
+        if (parts.length !== 3) {
+            return null;
+        }
 
         const [ivHex, encrypted, authTagHex] = parts;
 
@@ -91,8 +89,7 @@ export function decrypt(encryptedText) {
         decrypted += decipher.final('utf8');
 
         return decrypted;
-
-    } catch (error) {
+    } catch {
         console.error('Échec du déchiffrement AES-GCM.');
         return null;
     }

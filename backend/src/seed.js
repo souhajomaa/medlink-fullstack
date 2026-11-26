@@ -1,3 +1,4 @@
+
 import bcrypt from 'bcryptjs';
 import pool from './shared/utils/db.js';
 import { encrypt } from './shared/utils/encryption.js';
@@ -7,6 +8,8 @@ async function seed() {
 
   try {
     // 1. Création des tables
+    // IMPORTANT: Never DROP existing tables or user data.
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -40,7 +43,7 @@ async function seed() {
         id SERIAL PRIMARY KEY,
         patient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         practitioner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        clinique_id INTEGER REFERENCES cliniques(id),
+        clinique_id INTEGER REFERENCES cliniques(id) ON DELETE SET NULL,
         appointment_date DATE NOT NULL,
         appointment_time TIME NOT NULL,
         reason TEXT,
@@ -112,7 +115,7 @@ async function seed() {
       );
     `);
 
-    // 2. Migrations pour les bases déjà existantes
+    // 2. Migrations pour les bases existantes
     await pool.query(`
       ALTER TABLE users
         ADD COLUMN IF NOT EXISTS consent_given BOOLEAN DEFAULT FALSE;
@@ -147,10 +150,17 @@ async function seed() {
         ADD COLUMN IF NOT EXISTS statut VARCHAR(20) DEFAULT 'en_attente';
     `);
 
+    // 3. Indexes
     await pool.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_users_keycloak_id
         ON users(keycloak_id)
         WHERE keycloak_id IS NOT NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_appointments_patient
+        ON appointments(patient_id, appointment_date);
+
+      CREATE INDEX IF NOT EXISTS idx_appointments_practitioner
+        ON appointments(practitioner_id, appointment_date);
 
       CREATE INDEX IF NOT EXISTS idx_disponibilites_practitioner
         ON disponibilites(practitioner_id, date_debut, date_fin);
@@ -161,10 +171,12 @@ async function seed() {
 
     console.log('✅ Tables et migrations vérifiées.');
 
-    // 3. Mot de passe de démonstration
+    // 4. Demo users
+    // Existing users are NOT overwritten.
+    // Keycloak IDs are NOT generated or hardcoded here.
+
     const hash = await bcrypt.hash('password123', 10);
 
-    // 4. Création des utilisateurs sans écraser les comptes existants
     const demoUsers = [
       {
         email: 'admin@medlink.tn',
@@ -227,12 +239,13 @@ async function seed() {
       );
     }
 
-    // Récupération des identifiants réels, sans supposer leur ordre
-    const usersResult = await pool.query(`
-      SELECT id, email, role
-      FROM users
-      WHERE email = ANY($1::varchar[])
-    `, [demoUsers.map(user => user.email)]);
+    // Get actual database IDs instead of assuming insertion order.
+    const usersResult = await pool.query(
+      `SELECT id, email, role
+       FROM users
+       WHERE email = ANY($1::varchar[])`,
+      [demoUsers.map(user => user.email)]
+    );
 
     const users = Object.fromEntries(
       usersResult.rows.map(user => [user.email, user])
@@ -249,24 +262,30 @@ async function seed() {
       !admin || !patient1 || !patientOns || !patient2 ||
       !practitioner1 || !practitioner2
     ) {
-      throw new Error('Un ou plusieurs comptes de démonstration sont introuvables.');
+      throw new Error(
+        'Un ou plusieurs comptes de démonstration sont introuvables.'
+      );
     }
 
-    // Vérification des rôles avant de créer les relations
+    // Validate roles before creating relationships.
     if (
+      admin.role !== 'admin' ||
       patient1.role !== 'patient' ||
       patientOns.role !== 'patient' ||
       patient2.role !== 'patient' ||
       practitioner1.role !== 'practitioner' ||
       practitioner2.role !== 'practitioner'
     ) {
-      throw new Error('Les rôles des comptes existants ne correspondent pas au seed.');
+      throw new Error(
+        'Les rôles des comptes existants ne correspondent pas au seed.'
+      );
     }
 
-    // 5. Création ou récupération des cliniques
+    // 5. Clinics: get existing clinic or create it.
     async function getOrCreateClinic(nom, ville, adresse, telephone) {
       const existing = await pool.query(
-        `SELECT id FROM cliniques
+        `SELECT id
+         FROM cliniques
          WHERE nom = $1 AND ville = $2
          ORDER BY id
          LIMIT 1`,
@@ -308,13 +327,14 @@ async function seed() {
       '+216 71 333 333'
     );
 
-    // 6. Affectation des praticiens aux cliniques
+    // 6. Practitioner-clinic assignments
     await pool.query(
-      `INSERT INTO practitioner_clinique (practitioner_id, clinique_id)
+      `INSERT INTO practitioner_clinique
+        (practitioner_id, clinique_id)
        VALUES
-         ($1, $2),
-         ($1, $3),
-         ($4, $5)
+        ($1, $2),
+        ($1, $3),
+        ($4, $5)
        ON CONFLICT DO NOTHING`,
       [
         practitioner1.id,
@@ -325,7 +345,7 @@ async function seed() {
       ]
     );
 
-    // 7. Rendez-vous de démonstration
+    // 7. Demo appointments
     const appointments = [
       {
         patient: patient1.id,
@@ -372,11 +392,12 @@ async function seed() {
     for (const appointment of appointments) {
       await pool.query(
         `INSERT INTO appointments
-          (patient_id, practitioner_id, clinique_id, appointment_date,
-           appointment_time, reason, type, status)
+          (patient_id, practitioner_id, clinique_id,
+           appointment_date, appointment_time, reason, type, status)
          SELECT $1, $2, $3, CURRENT_DATE + $4, $5, $6, $7, $8
          WHERE NOT EXISTS (
-           SELECT 1 FROM appointments
+           SELECT 1
+           FROM appointments
            WHERE patient_id = $1
              AND practitioner_id = $2
              AND appointment_date = CURRENT_DATE + $4
@@ -396,13 +417,14 @@ async function seed() {
       );
     }
 
-    // 8. Dossiers médicaux
+    // 8. Medical records
     await pool.query(
       `INSERT INTO medical_records
         (patient_id, practitioner_id, title, diagnosis, notes, record_date)
        SELECT $1, $2, $3, $4, $5, CURRENT_DATE - 10
        WHERE NOT EXISTS (
-         SELECT 1 FROM medical_records
+         SELECT 1
+         FROM medical_records
          WHERE patient_id = $1 AND title = $3
        )`,
       [
@@ -414,7 +436,7 @@ async function seed() {
       ]
     );
 
-    // 9. Résultats d'examens
+    // 9. Lab results
     const labResults = [
       {
         patient: patient1.id,
@@ -443,7 +465,8 @@ async function seed() {
            unit, reference_range, status, result_date)
          SELECT $1, $2, $3, $4, $5, $6, 'normal', CURRENT_DATE - $7
          WHERE NOT EXISTS (
-           SELECT 1 FROM lab_results
+           SELECT 1
+           FROM lab_results
            WHERE patient_id = $1
              AND test_name = $3
              AND result_value = $4
@@ -460,14 +483,16 @@ async function seed() {
       );
     }
 
-    // 10. Journal d'audit
+    // 10. Audit log
     await pool.query(
       `INSERT INTO journal_audit
         (utilisateur_id, action, ressource, adresse_ip)
        SELECT $1, 'LOGIN', 'Authentification réussie', '192.168.1.10'
        WHERE NOT EXISTS (
-         SELECT 1 FROM journal_audit
-         WHERE utilisateur_id = $1 AND action = 'LOGIN'
+         SELECT 1
+         FROM journal_audit
+         WHERE utilisateur_id = $1
+           AND action = 'LOGIN'
            AND ressource = 'Authentification réussie'
        )`,
       [patient1.id]
@@ -478,14 +503,16 @@ async function seed() {
         (utilisateur_id, action, ressource, adresse_ip)
        SELECT $1, 'VIEW_RECORD', 'Dossier médical #1', '192.168.1.10'
        WHERE NOT EXISTS (
-         SELECT 1 FROM journal_audit
-         WHERE utilisateur_id = $1 AND action = 'VIEW_RECORD'
+         SELECT 1
+         FROM journal_audit
+         WHERE utilisateur_id = $1
+           AND action = 'VIEW_RECORD'
            AND ressource = 'Dossier médical #1'
        )`,
       [practitioner1.id]
     );
 
-    // 11. Disponibilités des praticiens
+    // 11. Practitioner availability
     const availabilities = [
       {
         practitioner: practitioner1.id,
@@ -512,9 +539,11 @@ async function seed() {
         `INSERT INTO disponibilites
           (practitioner_id, clinique_id, date_debut, date_fin,
            heure_debut, heure_fin, type)
-         SELECT $1, $2, CURRENT_DATE, CURRENT_DATE + 30, $3, $4, 'disponible'
+         SELECT $1, $2, CURRENT_DATE, CURRENT_DATE + 30, $3, $4,
+                'disponible'
          WHERE NOT EXISTS (
-           SELECT 1 FROM disponibilites
+           SELECT 1
+           FROM disponibilites
            WHERE practitioner_id = $1
              AND clinique_id = $2
              AND date_debut = CURRENT_DATE
@@ -530,14 +559,9 @@ async function seed() {
     }
 
     console.log('✅ Seed terminé.');
-    console.log('🔑 Comptes de démonstration (mot de passe initial : password123) :');
-    console.log('Admin       : admin@medlink.tn');
-    console.log('Patient     : patient@medlink.tn (Amine)');
-    console.log('Patient     : ons@medlink.tn (Ons)');
-    console.log('Patient     : sara.patient@medlink.tn (Sara)');
-    console.log('Praticien   : doctor@medlink.tn (Karim)');
-    console.log('Praticienne : pediatre@medlink.tn (Leila)');
-    console.log('ℹ️ Les comptes déjà existants ne voient pas leur mot de passe ni leur consentement écrasés.');
+    console.log(
+      'ℹ️ Les comptes existants et leurs Keycloak IDs sont préservés.'
+    );
 
     await pool.end();
     process.exit(0);
