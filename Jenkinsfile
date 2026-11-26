@@ -1,4 +1,4 @@
-// Pipeline MedLink : build, tests, SonarQube, OWASP ZAP, Docker Hub
+// Pipeline MedLink : build, tests, SonarQube, RBAC, OWASP ZAP, Docker Hub
 pipeline {
   agent { node { label 'built-in'; customWorkspace '/home/souhajo/jenkins_workspace/medlink' } }
   options { timeout(time: 40, unit: 'MINUTES'); disableConcurrentBuilds() }
@@ -32,6 +32,16 @@ pipeline {
       }
     }
 
+    stage('Tests RBAC (US-62)') {
+      steps {
+        sh '''
+          docker run --rm --network medlink-ci_default -e BASE_URL=http://frontend/api \
+            -v "$PWD/backend/tests":/t alpine:3.20 \
+            sh -c "apk add --no-cache bash curl openssl >/dev/null && bash /t/test-rbac.sh"
+        '''
+      }
+    }
+
     stage('Scan OWASP ZAP (US-60)') {
       steps {
         sh '''
@@ -54,8 +64,8 @@ pipeline {
           sh '''
             echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin
             for svc in backend frontend; do
-              docker build -t $DH_USER/medlink-$svc:${BUILD_NUMBER} \
-                           -t $DH_USER/medlink-$svc:latest ./$svc
+              docker tag medlink-ci-$svc $DH_USER/medlink-$svc:${BUILD_NUMBER}
+              docker tag medlink-ci-$svc $DH_USER/medlink-$svc:latest
               docker push --all-tags $DH_USER/medlink-$svc
             done
           '''
