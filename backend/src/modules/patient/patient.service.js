@@ -2,7 +2,7 @@ import pool from "../../shared/utils/db.js";
 
 export async function listPractitioners(filters = {}) {
   let query = `
-    SELECT u.id, u.full_name, u.specialty, 
+    SELECT u.id, u.full_name, u.specialty,
            array_agg(DISTINCT c.nom) FILTER (WHERE c.nom IS NOT NULL) as cliniques
     FROM users u
     LEFT JOIN practitioner_clinique pc ON u.id = pc.practitioner_id
@@ -175,7 +175,7 @@ export async function cancelAppointment(patientId, appointmentId) {
 
     // Anti-IDOR : on vérifie que le RDV appartient bien au patient
     const check = await client.query(
-      `SELECT id, status FROM appointments 
+      `SELECT id, status FROM appointments
        WHERE id = $1 AND patient_id = $2 FOR UPDATE`,
       [appointmentId, patientId],
     );
@@ -189,8 +189,8 @@ export async function cancelAppointment(patientId, appointmentId) {
     }
 
     const result = await client.query(
-      `UPDATE appointments 
-       SET status = 'cancelled', updated_at = NOW() 
+      `UPDATE appointments
+       SET status = 'cancelled', updated_at = NOW()
        WHERE id = $1 RETURNING *`,
       [appointmentId],
     );
@@ -222,7 +222,7 @@ export async function rescheduleAppointment(
 
     // 1. Vérifier que le RDV existe, appartient au patient et est encore modifiable (Anti-IDOR)
     const check = await client.query(
-      `SELECT id, practitioner_id, status FROM appointments 
+      `SELECT id, practitioner_id, status FROM appointments
        WHERE id = $1 AND patient_id = $2 FOR UPDATE`,
       [appointmentId, patientId],
     );
@@ -246,10 +246,10 @@ export async function rescheduleAppointment(
     ]);
 
     const conflict = await client.query(
-      `SELECT id FROM appointments 
-       WHERE practitioner_id = $1 
-         AND appointment_date = $2::date 
-         AND appointment_time = $3::time 
+      `SELECT id FROM appointments
+       WHERE practitioner_id = $1
+         AND appointment_date = $2::date
+         AND appointment_time = $3::time
          AND status IN ('pending', 'confirmed')
          AND id != $4`,
       [practitionerId, newDate, newTime, appointmentId],
@@ -261,7 +261,7 @@ export async function rescheduleAppointment(
 
     // 3. Mettre à jour le rendez-vous
     const result = await client.query(
-      `UPDATE appointments 
+      `UPDATE appointments
        SET appointment_date = $1::date, appointment_time = $2::time, status = 'pending', updated_at = NOW()
        WHERE id = $3 RETURNING *`,
       [newDate, newTime, appointmentId],
@@ -279,9 +279,9 @@ export async function rescheduleAppointment(
 
 export async function listPatientResults(patientId) {
   const result = await pool.query(
-    `SELECT id, test_name, result_value, unit, reference_range, status, result_date 
-     FROM lab_results 
-     WHERE patient_id = $1 
+    `SELECT id, test_name, result_value, unit, reference_range, status, result_date
+     FROM lab_results
+     WHERE patient_id = $1
      ORDER BY result_date DESC`,
     [patientId],
   );
@@ -292,8 +292,8 @@ export async function updateProfile(patientId, data) {
   const { phone, consent_given } = data;
 
   const result = await pool.query(
-    `UPDATE users 
-     SET phone = COALESCE($1, phone), 
+    `UPDATE users
+     SET phone = COALESCE($1, phone),
          consent_given = COALESCE($2, consent_given)
      WHERE id = $3 AND role = 'patient'
      RETURNING id, email, full_name, phone, consent_given`,
@@ -309,7 +309,7 @@ export async function updateProfile(patientId, data) {
 
 export async function listMedicalRecords(patientId) {
   const result = await pool.query(
-    `SELECT 
+    `SELECT
        m.id, m.title, m.diagnosis, m.notes, m.record_date,
        u.full_name AS practitioner_name, u.specialty
      FROM medical_records m

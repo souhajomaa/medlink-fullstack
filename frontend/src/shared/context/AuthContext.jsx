@@ -114,25 +114,32 @@ export function AuthProvider({ children }) {
     });
   };
 
-  // useCallback : une référence stable évite de réinitialiser le minuteur d'inactivité à chaque rendu.
   const logout = useCallback(async () => {
-    if (logoutInProgress.current) return;
-    logoutInProgress.current = true;
+  console.warn('[auth] logout() appelé par :', new Error().stack);
 
-    // Évite que Login.jsx relance une connexion après le retour de Keycloak
-    clearSession('medlink-login-attempt');
+  if (logoutInProgress.current) return;
+  logoutInProgress.current = true;
 
-    try {
-      // Pas de setUser(null) ici : la page quitte l'application pour Keycloak,
-      // puis revient sur /login une fois la session SSO fermée.
-      await keycloak.logout({
-        redirectUri: window.location.origin + '/login',
-      });
-    } catch (error) {
-      logoutInProgress.current = false;
-      throw error;
-    }
-  }, []);
+  // Empêche Login.jsx de considérer cette arrivée comme une tentative
+  // de connexion automatique précédente.
+  clearSession('medlink-login-attempt');
+
+  // Indique à Login.jsx que le retour vers /login vient d'un logout.
+  sessionStorage.setItem('medlink-logout', '1');
+
+  // On vide immédiatement l'utilisateur côté React.
+  setUser(null);
+
+  try {
+    await keycloak.logout({
+      redirectUri: window.location.origin + '/login',
+    });
+  } catch (error) {
+    logoutInProgress.current = false;
+    sessionStorage.removeItem('medlink-logout');
+    throw error;
+  }
+}, []);
 
   // US-40 : déconnexion après 15 min d'inactivité.
   // Le hook est appelé ici, au premier niveau du composant, et jamais dans logout().

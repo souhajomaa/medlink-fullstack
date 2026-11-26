@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../../shared/api/axiosConfig';
@@ -15,7 +16,9 @@ export default function BookAppointment() {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [reason, setReason] = useState('');
-  const [message, setMessage] = useState('');
+  const [type, setType] = useState('consultation');
+
+  const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingPractitioners, setLoadingPractitioners] = useState(true);
 
@@ -61,7 +64,6 @@ export default function BookAppointment() {
     loadPractitioners();
   }, []);
 
-  // Appliquer les filtres
   useEffect(() => {
     let result = practitioners;
 
@@ -112,7 +114,7 @@ export default function BookAppointment() {
 
     try {
       await api.patient.appointments.create({
-        doctor_id: selectedDoctor,
+        doctor_id: parseInt(selectedDoctor, 10),
         appointment_date: date,
         appointment_time: time,
         reason,

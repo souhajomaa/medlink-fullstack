@@ -1,5 +1,6 @@
 import pool from '../../shared/utils/db.js';
 import { HttpError } from './http-error.js';
+import { decrypt } from '../../shared/utils/encryption.js';
 
 // US-30 : le personnel administratif prend ou annule un rendez-vous au nom d'un patient
 // (par exemple après un appel téléphonique).
@@ -26,18 +27,31 @@ const toId = (v, msg) => {
 const escapeLike = (q) => `%${q.replace(/[\\%_]/g, '\\$&')}%`;
 
 // Recherche de patients pour la liste déroulante (20 résultats maximum)
+// Recherche de patients pour la liste déroulante (20 résultats maximum)
 export async function listPatients(q) {
     const params = [];
     let where = "WHERE role = 'patient'";
+
     if (q) {
         params.push(escapeLike(q));
         where += ` AND (full_name ILIKE $1 OR email ILIKE $1)`;
     }
+
     const { rows } = await pool.query(
-        `SELECT id, full_name, email, phone FROM users ${where} ORDER BY full_name LIMIT 20`,
+        `SELECT id, full_name, email, phone
+         FROM users
+         ${where}
+         ORDER BY full_name
+         LIMIT 20`,
         params
     );
-    return rows;
+
+    return rows.map((patient) => ({
+        ...patient,
+        phone: patient.phone && patient.phone.includes(':')
+            ? decrypt(patient.phone)
+            : patient.phone,
+    }));
 }
 
 // Praticiens avec leurs cliniques d'exercice : sert à construire le formulaire de réservation

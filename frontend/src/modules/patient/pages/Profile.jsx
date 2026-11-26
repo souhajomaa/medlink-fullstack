@@ -39,32 +39,32 @@ export default function Profile() {
       <form onSubmit={handleSubmit} className="card space-y-6 p-6">
         <div>
           <label className="block text-sm font-semibold text-on-variant mb-1">Email (non modifiable)</label>
-          <input 
-            type="email" 
-            value={user?.email || ''} 
-            disabled 
-            className="w-full rounded-md border border-outline-variant/50 bg-surface-low p-2.5 text-on-variant cursor-not-allowed" 
+          <input
+            type="email"
+            value={user?.email || ''}
+            disabled
+            className="w-full rounded-md border border-outline-variant/50 bg-surface-low p-2.5 text-on-variant cursor-not-allowed"
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-semibold text-on-variant mb-1">Numéro de téléphone</label>
-          <input 
-            type="tel" 
-            value={phone} 
-            onChange={(e) => setPhone(e.target.value)} 
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
             placeholder="+216 ..."
-            className="w-full rounded-md border border-outline-variant p-2.5 focus:border-primary focus:outline-none" 
+            className="w-full rounded-md border border-outline-variant p-2.5 focus:border-primary focus:outline-none"
           />
         </div>
 
         <div className="rounded-lg border border-outline-variant/50 bg-surface-low p-4">
           <div className="flex items-start gap-3">
-            <input 
-              type="checkbox" 
-              id="consent" 
-              checked={consent} 
-              onChange={(e) => setConsent(e.target.checked)} 
+            <input
+              type="checkbox"
+              id="consent"
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
               className="mt-1 h-4 w-4"
             />
             <label htmlFor="consent" className="text-sm text-on-variant leading-relaxed">
@@ -75,8 +75,8 @@ export default function Profile() {
         </div>
 
         <div className="flex justify-end">
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
             className="rounded-md bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
           >

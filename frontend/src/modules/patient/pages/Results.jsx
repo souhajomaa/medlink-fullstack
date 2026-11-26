@@ -14,35 +14,16 @@ export default function Results() {
       .finally(() => setLoading(false));
   }, []);
 
+const handleDownload = async (id, fileName) => {
+  try {
+    await api.download(`/patient/records/results/${id}/download`, `${fileName || 'resultat'}.txt`);
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
   if (loading) return <div className="py-10 text-center">Chargement...</div>;
   if (error) return <div className="rounded-lg bg-error-container p-4 text-error">{error}</div>;
-
-    const handleDownload = async (id, fileName) => {
-    try {
-      const token = localStorage.getItem('medlink_token');
-      const response = await fetch(`/api/patient/records/results/${id}/download`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) throw new Error("Erreur de téléchargement");
-
-      // Créer un lien temporaire pour déclencher le téléchargement
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${fileName || 'resultat'}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      
-    } catch (err) {
-      alert(err.message);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -73,7 +54,7 @@ export default function Results() {
                   </td>
                   <td className="px-5 py-3.5 font-medium text-primary">{r.test_name}</td>
                   <td className="px-5 py-3.5">
-                    {r.result_value} {r.unit} 
+                    {r.result_value} {r.unit}
                     <span className="text-xs text-on-variant ml-2">({r.reference_range})</span>
                   </td>
                   <td className="px-5 py-3.5">
@@ -83,8 +64,9 @@ export default function Results() {
                   </td>
                   <td className="px-5 py-3.5">
                     <button
-                    onClick={() => handleDownload(r.id, r.test_name)}
-                    className="rounded-md bg-surface-highest px-2.5 py-1 text-xs font-semibold text-secondary hover:opacity-80">
+                      onClick={() => handleDownload(r.id, r.test_name)}
+                      className="rounded-md bg-surface-highest px-2.5 py-1 text-xs font-semibold text-secondary hover:opacity-80"
+                    >
                       📥 Télécharger
                     </button>
                   </td>
@@ -97,3 +79,5 @@ export default function Results() {
     </div>
   );
 }
+
+

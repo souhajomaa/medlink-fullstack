@@ -108,7 +108,7 @@ export async function getResults(req, res) {
     const results = await listPatientResults(req.user.id);
 
     await pool.query(
-      `INSERT INTO journal_audit (utilisateur_id, action, ressource, adresse_ip) 
+      `INSERT INTO journal_audit (utilisateur_id, action, ressource, adresse_ip)
        VALUES ($1, $2, $3, $4)`,
       [
         req.user.id,
@@ -140,7 +140,7 @@ export async function getMedicalRecords(req, res) {
 
     // Journalisation (US-14)
     await pool.query(
-      `INSERT INTO journal_audit (utilisateur_id, action, ressource, adresse_ip) 
+      `INSERT INTO journal_audit (utilisateur_id, action, ressource, adresse_ip)
        VALUES ($1, $2, $3, $4)`,
       [
         req.user.id,
@@ -162,7 +162,7 @@ export async function downloadResult(req, res) {
     const resultId = parseInt(req.params.id, 10);
 
     const result = await pool.query(
-      `SELECT r.*, u.full_name AS patient_name 
+      `SELECT r.*, u.full_name AS patient_name
        FROM lab_results r
        JOIN users u ON r.patient_id = u.id
        WHERE r.id = $1 AND r.patient_id = $2`,
@@ -177,7 +177,7 @@ export async function downloadResult(req, res) {
 
     // Journalisation
     await pool.query(
-      `INSERT INTO journal_audit (utilisateur_id, action, ressource, adresse_ip) 
+      `INSERT INTO journal_audit (utilisateur_id, action, ressource, adresse_ip)
        VALUES ($1, $2, $3, $4)`,
       [
         req.user.id,
@@ -260,7 +260,7 @@ export async function downloadMedicalRecord(req, res) {
     const data = result.rows[0];
 
     await pool.query(
-      `INSERT INTO journal_audit (utilisateur_id, action, ressource, adresse_ip) 
+      `INSERT INTO journal_audit (utilisateur_id, action, ressource, adresse_ip)
        VALUES ($1, $2, $3, $4)`,
       [
         req.user.id,

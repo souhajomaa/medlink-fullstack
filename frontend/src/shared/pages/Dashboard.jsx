@@ -47,6 +47,23 @@ function StatusBadge({ status }) {
   );
 }
 
+function checkReminders(appointments) {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+  const reminder = appointments.find(a =>
+    a.appointment_date?.startsWith(tomorrowStr) &&
+    a.status !== 'cancelled'
+  );
+
+  if (reminder) {
+    toast(`Rappel : RDV avec ${reminder.doctor_name} demain � ${reminder.appointment_time?.slice(0, 5) || '--:--'}`, {
+      duration: 6000,
+      icon: '??',
+    });
+  }
+}
 export default function Dashboard() {
   const { user } = useAuth();
 
@@ -110,6 +127,10 @@ export default function Dashboard() {
         } else {
           const response = await api.dashboard();
           setData(response);
+
+          if (isPatient && response.upcoming) {
+            checkReminders(response.upcoming);
+          }
         }
       } catch (err) {
         console.error('Erreur chargement dashboard:', err);
@@ -123,7 +144,7 @@ export default function Dashboard() {
   }, [user, isAdmin, isPractitioner]);
 
   // 3. RENDU CONDITIONNEL
-  
+
   // Le tableau de bord administrateur est géré par le module admin
   if (isAdmin) {
     return (

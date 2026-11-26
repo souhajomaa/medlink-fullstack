@@ -30,6 +30,9 @@ export default function Patients() {
       setError(null);
       const response = await api.practitioner.patients.search(search);
       
+      console.log('PATIENTS API RESPONSE:', response);
+      console.log('PATIENTS DATA:', response.data);
+
       if (response.success) {
         setPatients(response.data || []);
       } else {
@@ -43,9 +46,13 @@ export default function Patients() {
     }
   };
 
+  // const handleViewDossier = (patientId, patientName) => {
+  //   navigate(`/app/dossiers/${patientId}`, { state: { patientName } });
+  // };
+
   const handleViewDossier = (patientId, patientName) => {
-    navigate(`/app/dossiers/${patientId}`, { state: { patientName } });
-  };
+  navigate(`/app/records/${patientId}`, { state: { patientName } });
+};
 
   // Filtrage et tri
   const filteredAndSortedPatients = patients

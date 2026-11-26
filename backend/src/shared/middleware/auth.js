@@ -55,6 +55,11 @@ export async function authenticate(req, res, next) {
       algorithms: ['RS256']
     });
 
+    console.log('[AUTH] Token vérifié');
+    console.log('[AUTH] Issuer :', payload.iss);
+    console.log('[AUTH] Client :', payload.azp);  
+    console.log('[AUTH] Subject présent :', !!payload.sub);
+
     // Vérifier que le token provient du client MedLink
     if (payload.azp !== KEYCLOAK_CLIENT_ID) {
       return res.status(401).json({
@@ -105,7 +110,8 @@ export async function authenticate(req, res, next) {
     return next();
 
   } catch (err) {
-    console.error('[auth] Erreur authentification :', err.message);
+      console.error('[auth] Erreur authentification :', err);
+      console.error('[auth] Stack :', err.stack);
 
     return res.status(401).json({
       error: 'Token invalide ou expiré'

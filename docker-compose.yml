@@ -1,25 +1,30 @@
+
 services:
-  # 1. Base de données
+  # 1. Base de données PostgreSQL
   db:
     image: postgres:16-alpine
     container_name: medlink-db
     environment:
-      POSTGRES_USER: medlink
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: medlink
+      POSTGRES_USER: ${DB_USER:-medlink}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-medlink_secret}
+      POSTGRES_DB: ${DB_NAME:-medlink}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U medlink -d medlink"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  # 2. HashiCorp Vault
   vault:
     image: hashicorp/vault:1.17
     container_name: medlink-vault
-    cap_add: [IPC_LOCK]
+    cap_add:
+      - IPC_LOCK
     environment:
       VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN}
       VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
@@ -33,6 +38,7 @@ services:
       retries: 20
     restart: unless-stopped
 
+  # 3. Initialize Vault secrets
   vault-init:
     image: hashicorp/vault:1.17
     container_name: medlink-vault-init
@@ -42,47 +48,62 @@ services:
     environment:
       VAULT_ADDR: "http://vault:8200"
       VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN}
-      DB_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-      KEYCLOAK_BACKEND_CLIENT_SECRET: ${KEYCLOAK_BACKEND_CLIENT_SECRET}
+      DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET in .env}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Define ENCRYPTION_KEY in .env}
+      KEYCLOAK_BACKEND_CLIENT_SECRET: ${KEYCLOAK_BACKEND_CLIENT_SECRET:?Define KEYCLOAK_BACKEND_CLIENT_SECRET in .env}
     volumes:
       - ./vault/init.sh:/init.sh:ro
       - vault_token:/vault-token
     entrypoint: ["/bin/sh", "/init.sh"]
     restart: "no"
-  # 2. Backend (Node.js)
+
+  # 4. Backend Node.js
   backend:
     build: ./backend
     container_name: medlink-backend
     ports:
       - "4000:4000"
     environment:
-      - NODE_ENV=production
-      - PORT=4000
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_USER=medlink
-      - DB_NAME=medlink
-      - KEYCLOAK_URL=http://keycloak:8080
-      - KEYCLOAK_PUBLIC_URL=http://localhost:8081
-      - KEYCLOAK_REALM=medlink
-      - KEYCLOAK_ISSUER=http://localhost:8081/realms/medlink
-      - KEYCLOAK_JWKS_URL=http://keycloak:8080/realms/medlink/protocol/openid-connect/certs
-      - KEYCLOAK_BACKEND_CLIENT_ID=medlink-backend
-      - VAULT_ADDR=http://vault:8200
-      - VAULT_TOKEN_FILE=/vault-token/backend.token
-      - VAULT_SECRET_PATH=secret/data/medlink
-      - VAULT_REQUIRED=true
+      NODE_ENV: production
+      PORT: "4000"
+
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: ${DB_USER:-medlink}
+      DB_PASSWORD: ${DB_PASSWORD:-medlink_secret}
+      DB_NAME: ${DB_NAME:-medlink}
+
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET in .env}
+      ALLOW_LEGACY_AUTH: "true"
+
+      KEYCLOAK_URL: "http://keycloak:8080"
+      KEYCLOAK_PUBLIC_URL: "http://localhost:8081"
+      KEYCLOAK_ISSUER: "http://localhost:8081/realms/medlink"
+      KEYCLOAK_JWKS_URL: "http://keycloak:8080/realms/medlink/protocol/openid-connect/certs"
+      KEYCLOAK_REALM: medlink
+      KEYCLOAK_BACKEND_CLIENT_ID: ${KEYCLOAK_BACKEND_CLIENT_ID:-medlink-backend}
+      KEYCLOAK_BACKEND_CLIENT_SECRET: ${KEYCLOAK_BACKEND_CLIENT_SECRET}
+
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN_FILE: /vault-token/backend.token
+      VAULT_SECRET_PATH: secret/data/medlink
+      VAULT_REQUIRED: "true"
+
     volumes:
       - vault_token:/vault-token:ro
+
     depends_on:
       db:
         condition: service_healthy
+      keycloak:
+        condition: service_started
       vault-init:
         condition: service_completed_successfully
 
-  # 3. Frontend (React + Nginx)
+    restart: unless-stopped
+
+  # 5. Frontend React + Nginx
   frontend:
     build: ./frontend
     container_name: medlink-frontend
@@ -90,47 +111,53 @@ services:
       - "3000:80"
     depends_on:
       - backend
+    restart: unless-stopped
 
-  # 4. Keycloak (Identity and Access Management)
+  # 6. Keycloak - Identity and Access Management
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.2
     container_name: medlink-keycloak
     command: start-dev --import-realm
+    env_file:
+      - .env
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_HOSTNAME: "http://localhost:8081"
-      # Injecté dans keycloak/import/realm-medlink.json (le secret n'est pas écrit dans git)
-      KEYCLOAK_BACKEND_CLIENT_SECRET: ${KEYCLOAK_BACKEND_CLIENT_SECRET}
-      # SMTP du realm (par défaut Mailpit ; Gmail possible via votre .env)
-      SMTP_HOST: ${SMTP_HOST:-mailpit}
-      SMTP_PORT: ${SMTP_PORT:-1025}
-      SMTP_FROM: ${SMTP_FROM:-noreply@medlink.local}
-      SMTP_AUTH: ${SMTP_AUTH:-false}
-      SMTP_SSL: ${SMTP_SSL:-false}
-      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      KC_LOG_LEVEL: "INFO,org.keycloak.services.managers.AuthenticationManager:debug,org.keycloak.TokenVerifier:debug,org.keycloak.services.resources.admin:debug"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_FROM: ${SMTP_FROM}
+      SMTP_AUTH: ${SMTP_AUTH}
+      SMTP_STARTTLS: ${SMTP_STARTTLS}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+
+      KC_LOG_LEVEL: INFO
+
     ports:
       - "8081:8080"
+
     volumes:
       - keycloak_data:/opt/keycloak/data
       - ./keycloak-theme/medlink:/opt/keycloak/themes/medlink
       - ./keycloak/import:/opt/keycloak/data/import:ro
-    depends_on:
-      - mailpit
+
     restart: unless-stopped
 
-  # 5. Mailpit : serveur SMTP de TEST (développement uniquement)
-  # Interface web : http://localhost:8025
-  # Keycloak l'atteint en interne via mailpit:1025 (port non publié sur l'hôte)
+  # 7. Mailpit - SMTP testing for development
+  # Web interface: http://localhost:8025
+  # SMTP service inside Docker: mailpit:1025
   mailpit:
     image: axllent/mailpit:latest
     container_name: medlink-mailpit
     ports:
       - "8025:8025"
-    restart: unless-stopped  
+    restart: unless-stopped
+
+  # 8. ClamAV antivirus
   clamav:
     image: clamav/clamav:stable
     container_name: medlink-clamav
@@ -139,15 +166,14 @@ services:
     volumes:
       - clamav_db:/var/lib/clamav
     healthcheck:
-      test: [ "CMD", "clamdcheck.sh" ]
+      test: ["CMD", "clamdcheck.sh"]
       interval: 60s
       retries: 3
       start_period: 120s
     restart: unless-stopped
+
 volumes:
   postgres_data:
   keycloak_data:
   vault_token:
   clamav_db:
-
-

@@ -10,6 +10,7 @@ export default function ComptesRendus() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
   
   const [form, setForm] = useState({
     patient_id: '',
@@ -112,25 +113,28 @@ export default function ComptesRendus() {
             </label>
             <div className="relative">
               <input
-                type="text"
-                placeholder="Rechercher un patient par nom ou téléphone..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setForm({ ...form, patient_id: '' });
-                }}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-              />
-              {searchTerm && filteredPatients.length > 0 && (
+  type="text"
+  placeholder="Rechercher un patient par nom ou téléphone..."
+  value={searchTerm}
+  onFocus={() => setShowDropdown(true)}
+  onChange={(e) => {
+    setSearchTerm(e.target.value);
+    setForm({ ...form, patient_id: '' });
+    setShowDropdown(true);
+  }}
+  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+/>
+              {showDropdown && searchTerm && filteredPatients.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-surface border border-outline-variant rounded-lg shadow-lg max-h-60 overflow-auto">
                   {filteredPatients.map((patient) => (
                     <button
                       key={patient.id}
                       type="button"
                       onClick={() => {
-                        setForm({ ...form, patient_id: patient.id });
-                        setSearchTerm(patient.full_name);
-                      }}
+  setForm({ ...form, patient_id: patient.id });
+  setSearchTerm(patient.full_name);
+  setShowDropdown(false);
+}}
                       className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between border-b border-gray-100 last:border-0"
                     >
                       <div>

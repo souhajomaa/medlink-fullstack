@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { api } from '../../../shared/api/axiosConfig';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Fonction utilitaire pour formater les dates
 const formatDate = (dateString) => {
@@ -73,6 +75,145 @@ export default function Records() {
   // Liste unique des patients
   const patients = [...new Set(list.map(r => r.patient_name).filter(Boolean))];
 
+// Générer un PDF avec un ou plusieurs comptes-rendus
+const generatePDF = (records, filename = 'comptes-rendus-medlink.pdf') => {
+  if (!records || records.length === 0) {
+    alert('Aucun compte-rendu disponible.');
+    return;
+  }
+
+  const doc = new jsPDF();
+
+  records.forEach((record, index) => {
+    if (index > 0) {
+      doc.addPage();
+    }
+
+    doc.setFontSize(18);
+    doc.setTextColor(15, 118, 110);
+    doc.text('MEDLINK - Compte-rendu médical', 14, 20);
+
+    doc.setFontSize(11);
+    doc.setTextColor(50, 50, 50);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [['Information', 'Détail']],
+      body: [
+        ['Titre', record.title || 'Compte-rendu de consultation'],
+        ['Patient', record.patient_name || 'Non renseigné'],
+        ['Médecin', record.doctor_name || record.practitioner_name || 'Non renseigné'],
+        ['Date', formatDate(record.record_date)],
+        ['Diagnostic', record.diagnosis || 'Non renseigné'],
+        ['Notes', record.notes || 'Aucune note'],
+      ],
+      styles: {
+        fontSize: 10,
+        cellPadding: 4,
+        overflow: 'linebreak',
+      },
+      columnStyles: {
+        0: { cellWidth: 40, fontStyle: 'bold' },
+        1: { cellWidth: 140 },
+      },
+      margin: { left: 14, right: 14 },
+    });
+
+    doc.setFontSize(8);
+    doc.text(
+      'Document généré par MedLink',
+      14,
+      doc.internal.pageSize.height - 10
+    );
+  });
+
+  doc.save(filename);
+};
+
+// Éviter l'injection HTML dans le document imprimé
+const escapeHTML = (value) => {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
+// Générer un document imprimable
+const printRecords = (records, title = 'Comptes-rendus médicaux') => {
+  if (!records || records.length === 0) {
+    alert('Aucun compte-rendu à exporter.');
+    return;
+  }
+
+  const printWindow = window.open('', '_blank');
+
+  if (!printWindow) {
+    alert('Autorise les fenêtres pop-up pour exporter le PDF.');
+    return;
+  }
+
+  const content = records.map(record => `
+    <article class="record">
+      <h2>${escapeHTML(record.title || 'Compte-rendu de consultation')}</h2>
+
+      <p><strong>Patient :</strong> ${escapeHTML(record.patient_name || 'Non renseigné')}</p>
+      <p><strong>Médecin :</strong> ${escapeHTML(record.doctor_name || record.practitioner_name || 'Non renseigné')}</p>
+      <p><strong>Date :</strong> ${escapeHTML(formatDate(record.record_date))}</p>
+
+      <h3>Diagnostic</h3>
+      <p>${escapeHTML(record.diagnosis || 'Aucun diagnostic renseigné')}</p>
+
+      <h3>Notes et observations</h3>
+      <p class="notes">${escapeHTML(record.notes || 'Aucune note renseignée')}</p>
+    </article>
+  `).join('');
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+      <meta charset="UTF-8">
+      <title>${escapeHTML(title)}</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          padding: 30px;
+          color: #222;
+        }
+        h1 { color: #0f766e; }
+        h2 { color: #115e59; }
+        h3 { margin-top: 20px; color: #374151; }
+        .record {
+          padding: 20px;
+          margin-bottom: 25px;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          page-break-inside: avoid;
+        }
+        .notes { white-space: pre-wrap; }
+        @media print {
+          body { padding: 10px; }
+          .record { break-inside: avoid; }
+        }
+      </style>
+    </head>
+    <body>
+      <h1>${escapeHTML(title)}</h1>
+      ${content}
+    </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+
+  printWindow.onload = () => {
+    printWindow.focus();
+    printWindow.print();
+  };
+};
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-32">
@@ -115,7 +256,7 @@ export default function Records() {
             </p>
           </div>
         </div>
-        <button className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium text-sm flex items-center gap-2 shadow-sm">
+        <button className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium text-sm flex items-center gap-2 shadow-sm" onClick={() => generatePDF(filteredRecords, 'historique-medlink.pdf')}>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
@@ -302,7 +443,9 @@ export default function Records() {
                   
                   <div className="flex items-center gap-2">
                     <button 
-                      onClick={() => setExpandedRecord(expandedRecord === record.id ? null : record.id)}
+                      onClick={() => setExpandedRecord(
+  expandedRecord === record.id ? null : record.id
+)}
                       className="px-4 py-2 text-sm font-medium text-teal-600 hover:bg-teal-50 rounded-lg transition-colors flex items-center gap-2"
                     >
                       {expandedRecord === record.id ? (
@@ -331,6 +474,7 @@ export default function Records() {
               </div>
 
               {/* Contenu du dossier */}
+              {expandedRecord === record.id && (
               <div className="p-6 space-y-6">
                 {/* Diagnostic */}
                 {record.diagnosis && (
@@ -344,6 +488,7 @@ export default function Records() {
                     <p className="text-gray-900 font-medium leading-relaxed">{record.diagnosis}</p>
                   </div>
                 )}
+                
                 
                 {/* Notes */}
                 {record.notes && (
@@ -360,13 +505,19 @@ export default function Records() {
 
                 {/* Actions */}
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
-                  <button className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2">
+                  <button
+  onClick={() => printRecords([record], 'Compte-rendu médical')}
+  className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
+>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                     </svg>
                     Imprimer
                   </button>
-                  <button className="px-4 py-2 text-sm font-medium text-teal-600 hover:bg-teal-50 rounded-lg transition-colors flex items-center gap-2">
+                  <button
+  onClick={() => generatePDF([record], `compte-rendu-${record.id}.pdf`)}
+  className="px-4 py-2 text-sm font-medium text-teal-600 hover:bg-teal-50 rounded-lg transition-colors flex items-center gap-2"
+>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
@@ -374,6 +525,7 @@ export default function Records() {
                   </button>
                 </div>
               </div>
+              )}
             </div>
           ))}
         </div>
