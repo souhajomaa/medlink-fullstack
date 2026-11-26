@@ -25,6 +25,7 @@ import Patients from './modules/practitioner/pages/Patients';
 import DossiersMedicaux from './modules/practitioner/pages/DossiersMedicaux';
 import ComptesRendus from './modules/practitioner/pages/ComptesRendus';
 import PublierResultats from './modules/practitioner/pages/PublierResultats';
+import RecordsPage from './modules/practitioner/pages/DossiersMedicaux';
 
 // Pages administrateur
 import AdminDashboard from './modules/admin/pages/Admin';
@@ -84,7 +85,20 @@ function DashboardRouter() {
         ? <AdminDashboard />
         : <Dashboard />;
 }
+// Affichage des dossiers médicaux selon le rôle
+function RecordsRouter() {
+    const { user } = useAuth();
 
+    if (user?.role === 'patient') {
+        return <MedicalRecords />;
+    }
+
+    if (user?.role === 'practitioner') {
+        return <Patients />;
+    }
+
+    return <Navigate to="/app" replace />;
+}
 export default function App() {
     return (
         <>
@@ -111,7 +125,9 @@ export default function App() {
                     {/* Patient */}
                     <Route path="appointments" element={<Appointments />} />
                     <Route path="book" element={<BookAppointment />} />
-                    <Route path="records" element={<MedicalRecords />} />
+                    <Route path="records" element={<Patients />} />
+                    {/* <Route path="records" element={<RecordsRouter />} /> */}
+                    <Route path="records/:id" element={<DossiersMedicaux />} />
                     <Route path="results" element={<Results />} />
                     <Route path="profile" element={<Profile />} />
 
@@ -122,6 +138,8 @@ export default function App() {
                     <Route path="dossiers/:id" element={<DossiersMedicaux />} />
                     <Route path="comptes-rendus" element={<ComptesRendus />} />
                     <Route path="publier-resultats" element={<PublierResultats />} />
+                    <Route path="records" element={<RecordsPage />} />
+                    <Route path="records/:id" element={<DossiersMedicaux />} />
 
                     {/* Administrateur */}
                     <Route

@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "@express-rate-limit/tsconfig": "^1.0.5",
+    "typescript": "^7.0.2"
+  }
+}

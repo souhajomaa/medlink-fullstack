@@ -239,6 +239,7 @@ export const api = {
   patient,
   practitioner,
   admin,
+  download,
 
   // role-based facades (used by Aya's pages)
   appointments: {

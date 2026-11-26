@@ -46,9 +46,13 @@ export default function Patients() {
     }
   };
 
+  // const handleViewDossier = (patientId, patientName) => {
+  //   navigate(`/app/dossiers/${patientId}`, { state: { patientName } });
+  // };
+
   const handleViewDossier = (patientId, patientName) => {
-    navigate(`/app/dossiers/${patientId}`, { state: { patientName } });
-  };
+  navigate(`/app/records/${patientId}`, { state: { patientName } });
+};
 
   // Filtrage et tri
   const filteredAndSortedPatients = patients

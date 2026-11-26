@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../shared/context/AuthContext';
 import { api } from '../../shared/api/axiosConfig';
@@ -35,9 +35,9 @@ function StatusBadge({ status }) {
 
   const labels = {
     pending: 'En attente',
-    confirmed: 'Confirm├®',
-    cancelled: 'Annul├®',
-    completed: 'Termin├®',
+    confirmed: 'Confirmé',
+    cancelled: 'Annulé',
+    completed: 'Terminé',
   };
 
   return (
@@ -58,9 +58,9 @@ function checkReminders(appointments) {
   );
 
   if (reminder) {
-    toast(`Rappel : RDV avec ${reminder.doctor_name} demain à ${reminder.appointment_time?.slice(0, 5) || '--:--'}`, {
+    toast(`Rappel : RDV avec ${reminder.doctor_name} demain � ${reminder.appointment_time?.slice(0, 5) || '--:--'}`, {
       duration: 6000,
-      icon: '📅',
+      icon: '??',
     });
   }
 }
@@ -71,14 +71,14 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // 1. D├ëCLARATION DES R├öLES (Doit ├¬tre fait AVANT le useEffect et les returns)
+  // 1. DÉCLARATION DES RÔLES (Doit être fait AVANT le useEffect et les returns)
   const isPatient = user?.role === 'patient';
   const isPractitioner = user?.role === 'practitioner';
   const isAdmin = user?.role === 'admin';
 
-  // 2. CHARGEMENT DES DONN├ëES
+  // 2. CHARGEMENT DES DONNÉES
   useEffect(() => {
-    // L'admin n'a pas de donn├®es ici : /api/dashboard lui renvoie 403.
+    // L'admin n'a pas de données ici : /api/dashboard lui renvoie 403.
     if (!user || isAdmin) return;
 
     const fetchDashboard = async () => {
@@ -102,7 +102,7 @@ export default function Dashboard() {
         }
       } catch (err) {
         console.error('Erreur chargement dashboard:', err);
-        setError(err.message || 'Impossible de charger les donn├®es du tableau de bord.');
+        setError(err.message || 'Impossible de charger les données du tableau de bord.');
       } finally {
         setLoading(false);
       }
@@ -113,13 +113,13 @@ export default function Dashboard() {
 
   // 3. RENDU CONDITIONNEL
 
-  // Le tableau de bord administrateur est g├®r├® par le module admin
+  // Le tableau de bord administrateur est géré par le module admin
   if (isAdmin) {
     return (
       <div className="p-6 text-gray-600 bg-white rounded-xl shadow-sm m-6">
-        <p>Le tableau de bord administrateur est g├®r├® par le module admin.</p>
+        <p>Le tableau de bord administrateur est géré par le module admin.</p>
         <Link to="/app/admin/users" className="text-primary hover:underline mt-2 inline-block">
-          Aller au panneau d'administration ÔåÆ
+          Aller au panneau d'administration →
         </Link>
       </div>
     );
@@ -139,7 +139,7 @@ export default function Dashboard() {
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl m-6">
-        ÔÜá´©Å {error}
+        ⚠️ {error}
       </div>
     );
   }
@@ -148,17 +148,17 @@ export default function Dashboard() {
     ? user?.full_name
     : `Dr. ${user?.full_name || ''}`;
 
-  // Donn├®es adapt├®es au r├┤le
+  // Données adaptées au rôle
   const stats = data?.stats || {};
   const appointments = isPatient ? (data?.upcoming || []) : (data?.today || []);
 
   return (
     <div className="space-y-8 fade-in p-6">
-      {/* En-t├¬te */}
+      {/* En-tête */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-gray-200">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
-            Bonjour, {displayName} ­ƒæï
+            Bonjour, {displayName} 👋
           </h1>
           <p className="text-gray-500 mt-2 flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -178,15 +178,15 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-3">
         {isPatient ? (
           <>
-            <StatCard label="RDV ├á venir" value={stats.upcoming_appointments} icon="­ƒôà" bgIcon="bg-blue-50" textIcon="text-blue-600" subtext="Prochainement" />
-            <StatCard label="Documents m├®dicaux" value={stats.medical_records} icon="­ƒôï" bgIcon="bg-indigo-50" textIcon="text-indigo-600" subtext="Dossiers complets" />
-            <StatCard label="R├®sultats d'analyses" value={stats.lab_results} icon="­ƒº¬" bgIcon="bg-purple-50" textIcon="text-purple-600" subtext="Derniers bilans" />
+            <StatCard label="RDV à venir" value={stats.upcoming_appointments} icon="📅" bgIcon="bg-blue-50" textIcon="text-blue-600" subtext="Prochainement" />
+            <StatCard label="Documents médicaux" value={stats.medical_records} icon="📋" bgIcon="bg-indigo-50" textIcon="text-indigo-600" subtext="Dossiers complets" />
+            <StatCard label="Résultats d'analyses" value={stats.lab_results} icon="🧪" bgIcon="bg-purple-50" textIcon="text-purple-600" subtext="Derniers bilans" />
           </>
         ) : (
           <>
-            <StatCard label="RDV aujourd'hui" value={stats.today_appointments} icon="­ƒôà" bgIcon="bg-blue-50" textIcon="text-blue-600" subtext="Consultations du jour" />
-            <StatCard label="En attente" value={stats.pending_appointments} icon="ÔÅ│" bgIcon="bg-yellow-50" textIcon="text-yellow-600" subtext="├Ç confirmer" />
-            <StatCard label="Patients suivis" value={stats.total_patients} icon="­ƒæÑ" bgIcon="bg-green-50" textIcon="text-green-600" subtext="Patient├¿le active" />
+            <StatCard label="RDV aujourd'hui" value={stats.today_appointments} icon="📅" bgIcon="bg-blue-50" textIcon="text-blue-600" subtext="Consultations du jour" />
+            <StatCard label="En attente" value={stats.pending_appointments} icon="⏳" bgIcon="bg-yellow-50" textIcon="text-yellow-600" subtext="À confirmer" />
+            <StatCard label="Patients suivis" value={stats.total_patients} icon="👥" bgIcon="bg-green-50" textIcon="text-green-600" subtext="Patientèle active" />
           </>
         )}
       </div>
@@ -199,7 +199,7 @@ export default function Dashboard() {
               {isPatient ? 'Prochains rendez-vous' : 'Agenda du jour'}
             </h3>
             <p className="text-sm text-gray-500 mt-0.5">
-              {isPatient ? 'Vos consultations ├á venir' : 'R├®sum├® de votre journ├®e de travail'}
+              {isPatient ? 'Vos consultations à venir' : 'Résumé de votre journée de travail'}
             </p>
           </div>
           <Link
@@ -217,15 +217,15 @@ export default function Dashboard() {
           {appointments.length === 0 ? (
             <div className="py-16 text-center">
               <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">­ƒôà</span>
+                <span className="text-3xl">📅</span>
               </div>
               <p className="text-gray-900 font-semibold text-lg">
-                {isPatient ? 'Aucun rendez-vous ├á venir.' : 'Aucun rendez-vous pr├®vu aujourdÔÇÖhui.'}
+                {isPatient ? 'Aucun rendez-vous à venir.' : 'Aucun rendez-vous prévu aujourd’hui.'}
               </p>
               <p className="text-gray-500 text-sm mt-1 max-w-md mx-auto">
                 {isPatient
                   ? 'Profitez de ce temps libre ou prenez un nouveau rendez-vous.'
-                  : "C'est le moment id├®al pour rattraper vos comptes-rendus en retard."}
+                  : "C'est le moment idéal pour rattraper vos comptes-rendus en retard."}
               </p>
             </div>
           ) : (
@@ -246,7 +246,7 @@ export default function Dashboard() {
                         <span>{a.reason || a.type || 'Consultation'}</span>
                         {a.clinique_ville && (
                           <>
-                            <span className="text-gray-300">ÔÇó</span>
+                            <span className="text-gray-300">•</span>
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
                               {a.clinique_ville}
                             </span>
@@ -277,16 +277,16 @@ export default function Dashboard() {
       {isPatient && (
         <div className="grid gap-6 md:grid-cols-2">
           <Link to="/app/book" className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-200 transition-all flex items-center gap-5 group">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-600 text-2xl text-white group-hover:scale-110 transition-transform">Ô×ò</div>
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-600 text-2xl text-white group-hover:scale-110 transition-transform">➕</div>
             <div>
               <p className="text-lg font-bold text-gray-900">Prendre un rendez-vous</p>
-              <p className="text-sm text-gray-500">Consultez les disponibilit├®s</p>
+              <p className="text-sm text-gray-500">Consultez les disponibilités</p>
             </div>
           </Link>
           <Link to="/app/results" className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-purple-200 transition-all flex items-center gap-5 group">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-purple-600 text-2xl text-white group-hover:scale-110 transition-transform">­ƒº¬</div>
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-purple-600 text-2xl text-white group-hover:scale-110 transition-transform">🧪</div>
             <div>
-              <p className="text-lg font-bold text-gray-900">Mes r├®sultats</p>
+              <p className="text-lg font-bold text-gray-900">Mes résultats</p>
               <p className="text-sm text-gray-500">Analyses et bilans</p>
             </div>
           </Link>
@@ -297,17 +297,17 @@ export default function Dashboard() {
       {!isPatient && !isAdmin && (
         <div className="grid gap-4 md:grid-cols-2">
           <Link to="/app/patients" className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-200 transition-all flex items-center gap-5 group">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-600 text-2xl text-white group-hover:scale-110 transition-transform">­ƒöì</div>
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-600 text-2xl text-white group-hover:scale-110 transition-transform">🔍</div>
             <div className="flex-1">
               <p className="text-lg font-bold text-gray-900">Rechercher un patient</p>
-              <p className="text-sm text-gray-500">Acc├®der aux dossiers m├®dicaux et historiques</p>
+              <p className="text-sm text-gray-500">Accéder aux dossiers médicaux et historiques</p>
             </div>
           </Link>
           <Link to="/app/disponibilites" className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-yellow-200 transition-all flex items-center gap-5 group">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-yellow-500 text-2xl text-white group-hover:scale-110 transition-transform">ÔÅ░</div>
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-yellow-500 text-2xl text-white group-hover:scale-110 transition-transform">⏰</div>
             <div className="flex-1">
-              <p className="text-lg font-bold text-gray-900">G├®rer mes disponibilit├®s</p>
-              <p className="text-sm text-gray-500">Ajouter des cr├®neaux ou signaler des absences</p>
+              <p className="text-lg font-bold text-gray-900">Gérer mes disponibilités</p>
+              <p className="text-sm text-gray-500">Ajouter des créneaux ou signaler des absences</p>
             </div>
           </Link>
         </div>
