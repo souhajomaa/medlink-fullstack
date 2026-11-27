@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import pool from "../../shared/utils/db.js";
+import { getSecret } from "../../shared/utils/secrets.js";
 
 export function startReminderWorker() {
   cron.schedule("* * * * *", async () => {

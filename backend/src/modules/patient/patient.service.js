@@ -1,4 +1,5 @@
 import pool from "../../shared/utils/db.js";
+import { getSecret } from "../../shared/utils/secrets.js";
 
 export async function listPractitioners(filters = {}) {
   let query = `

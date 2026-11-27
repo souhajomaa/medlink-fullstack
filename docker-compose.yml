@@ -130,7 +130,7 @@ services:
     container_name: medlink-mailpit
     ports:
       - "8025:8025"
-    restart: unless-stopped  
+    restart: unless-stopped
   clamav:
     image: clamav/clamav:stable
     container_name: medlink-clamav
@@ -139,7 +139,7 @@ services:
     volumes:
       - clamav_db:/var/lib/clamav
     healthcheck:
-      test: [ "CMD", "clamdcheck.sh" ]
+      test: ["CMD", "clamdcheck.sh"]
       interval: 60s
       retries: 3
       start_period: 120s
@@ -149,5 +149,3 @@ volumes:
   keycloak_data:
   vault_token:
   clamav_db:
-
-
