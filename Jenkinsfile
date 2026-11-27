@@ -75,8 +75,6 @@ pipeline {
   }
   post {
     always {
-      publishHTML(target: [reportDir: '.', reportFiles: 'zap-frontend.html',
-                           reportName: 'Rapport ZAP', allowMissing: true, keepAll: true])
       archiveArtifacts artifacts: 'zap-frontend.html', allowEmptyArchive: true
       sh 'docker compose down -v || true'
       sh 'docker logout || true'
